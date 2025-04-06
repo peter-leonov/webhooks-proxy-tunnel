@@ -1,9 +1,12 @@
 import { DurableObject } from "cloudflare:workers";
 
+const RESPONSE_TIMEOUT = 30_000; // ms
+
 export class MyDurableObject extends DurableObject {
   // TODO: think of using a WeakMap
   proxyTo: WebSocket | null = null;
   resolve: ((value: Response) => void) | null = null;
+  reject: ((value: Error) => void) | null = null;
   constructor(ctx: DurableObjectState, env: Env) {
     super(ctx, env);
   }
@@ -13,6 +16,7 @@ export class MyDurableObject extends DurableObject {
    * JSON related error resulting in 500.
    */
   async fetch(request: Request): Promise<Response> {
+    console.info("connecting client from", request.url);
     const webSocketPair = new WebSocketPair();
     const [client, server] = Object.values(webSocketPair);
 
@@ -20,17 +24,18 @@ export class MyDurableObject extends DurableObject {
     // request within the Durable Object. It has the effect of "accepting" the connection,
     // and allowing the WebSocket to send and receive messages.
     server.accept();
-    this.proxyTo?.close(4101, "New connection");
+    this.reject?.(new Error("new tunnel client connected"));
+    this.proxyTo?.close(4101, "new tunnel client connected");
     this.proxyTo = server;
 
     server.addEventListener("message", (event: MessageEvent) => {
-      console.log("Received message from client:", event.data);
+      console.info("got a message from client");
       this.message(event);
     });
 
     server.addEventListener("close", (cls: CloseEvent) => {
-      server.close(1001, "Server closed");
-      console.log("Durable Object has closed WebSocket", server, cls.code);
+      console.info("closing connection", cls.code, cls.reason);
+      server.close(1001, `server closed (${cls.code}: ${cls.reason})`);
     });
 
     return new Response(null, {
@@ -40,15 +45,41 @@ export class MyDurableObject extends DurableObject {
   }
 
   async proxy(request: Request): Promise<Response> {
+    console.info("proxying request", request.url);
     if (!this.proxyTo) {
-      return new Response("No proxy connection", { status: 502 });
+      return new Response("no proxy connection", { status: 502 });
     }
 
-    this.proxyTo.send(`Proxying request: ${request.url}`);
+    const requestSerializable = {
+      method: request.method,
+      url: request.url,
+      headers: Object.fromEntries(request.headers.entries()),
+    };
 
-    return await new Promise<Response>((resolve) => {
-      this.resolve = resolve;
-    });
+    this.proxyTo.send(
+      JSON.stringify({
+        type: "request",
+        request: requestSerializable,
+      }),
+    );
+
+    try {
+      return await withTimeout(
+        new Promise<Response>((resolve, reject) => {
+          this.resolve = resolve;
+          this.reject = reject;
+        }),
+        RESPONSE_TIMEOUT,
+      );
+    } catch (error) {
+      if (error instanceof TimeoutError) {
+        return new Response(
+          "waiting for response from the tunnel client timed out",
+          { status: 504 },
+        );
+      }
+      throw error;
+    }
   }
 
   message(event: MessageEvent): void {
@@ -56,10 +87,11 @@ export class MyDurableObject extends DurableObject {
   }
 
   async close(): Promise<Response> {
+    this.reject?.(new Error("Manually closed"));
     if (!this.proxyTo) {
-      return new Response("No proxy connection", { status: 200 });
+      return new Response("No proxy connection");
     }
-    this.proxyTo?.close(4102, "Manually closed");
+    this.proxyTo.close(4102, "manually closed");
     this.proxyTo = null;
     return new Response("Closed connection");
   }
@@ -124,3 +156,17 @@ export default {
     }
   },
 } satisfies ExportedHandler<Env>;
+
+class TimeoutError extends Error {}
+
+function withTimeout<T>(promise: Promise<T>, ms: number): Promise<T> {
+  return new Promise((resolve, reject) => {
+    const timeoutId = setTimeout(() => {
+      reject(new TimeoutError(`a promise timed out after ${ms}ms`));
+    }, ms);
+
+    promise.then(resolve, reject).finally(() => {
+      clearTimeout(timeoutId);
+    });
+  });
+}
