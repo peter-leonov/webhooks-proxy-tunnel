@@ -1,40 +1,48 @@
 import { DurableObject } from "cloudflare:workers";
 
-/**
- * Welcome to Cloudflare Workers! This is your first Durable Objects application.
- *
- * - Run `npm run dev` in your terminal to start a development server
- * - Open a browser tab at http://localhost:8787/ to see your Durable Object in action
- * - Run `npm run deploy` to publish your application
- *
- * Bind resources to your worker in `wrangler.jsonc`. After adding bindings, a type definition for the
- * `Env` object can be regenerated with `npm run cf-typegen`.
- *
- * Learn more at https://developers.cloudflare.com/durable-objects
- */
-
-/** A Durable Object's behavior is defined in an exported Javascript class */
 export class MyDurableObject extends DurableObject {
-  /**
-   * The constructor is invoked once upon creation of the Durable Object, i.e. the first call to
-   * 	`DurableObjectStub::get` for a given identifier (no-op constructors can be omitted)
-   *
-   * @param ctx - The interface for interacting with Durable Object state
-   * @param env - The interface to reference bindings declared in wrangler.jsonc
-   */
+  tunnels: WebSocket[] = [];
   constructor(ctx: DurableObjectState, env: Env) {
     super(ctx, env);
   }
 
   /**
-   * The Durable Object exposes an RPC method sayHello which will be invoked when when a Durable
-   *  Object instance receives a request from a Worker via the same method invocation on the stub
-   *
-   * @param name - The name provided to a Durable Object instance from a Worker
-   * @returns The greeting to be sent back to the Worker
+   * Has to be called `fetch()` otherwise CF errors out with some
+   * JSON related error resulting in 500.
    */
-  async sayHello(name: string): Promise<string> {
-    return `Hello, ${name}!`;
+  async fetch(request: Request): Promise<Response> {
+    const webSocketPair = new WebSocketPair();
+    const [client, server] = Object.values(webSocketPair);
+
+    // Calling `accept()` tells the runtime that this WebSocket is to begin terminating
+    // request within the Durable Object. It has the effect of "accepting" the connection,
+    // and allowing the WebSocket to send and receive messages.
+    server.accept();
+    this.tunnels.push(server);
+
+    server.addEventListener("message", (event: MessageEvent) => {
+      console.log("Received message from client:", event.data);
+      // server.send(`[Durable Object] ${event.data}`);
+    });
+
+    server.addEventListener("close", (cls: CloseEvent) => {
+      console.log("Durable Object is closing WebSocket", cls.code);
+      server.close();
+    });
+
+    return new Response(null, {
+      status: 101,
+      webSocket: client,
+    });
+  }
+
+  async proxy(request: Request): Promise<Response> {
+    this.tunnels.forEach((tunnel) => {
+      // Send the request to all connected tunnels
+      tunnel.send(`Proxying request: ${request.url}`);
+    });
+
+    return new Response("Proxying request");
   }
 }
 
@@ -48,19 +56,43 @@ export default {
    * @returns The response to be sent back to the client
    */
   async fetch(request, env, ctx): Promise<Response> {
-    // Create a `DurableObjectId` for an instance of the `MyDurableObject`
-    // class named "foo". Requests from all Workers to the instance named
-    // "foo" will go to a single globally unique Durable Object instance.
-    const id: DurableObjectId = env.MY_DURABLE_OBJECT.idFromName("foo");
+    const url = new URL(request.url);
+    if (url.pathname.startsWith("/tunnel/")) {
+      // Expect to receive a WebSocket Upgrade request.
+      // If there is one, accept the request and return a WebSocket Response.
+      const upgradeHeader = request.headers.get("Upgrade");
+      if (!upgradeHeader || upgradeHeader !== "websocket") {
+        return new Response("Expected `Upgrade: websocket`", {
+          status: 426,
+        });
+      }
 
-    // Create a stub to open a communication channel with the Durable
-    // Object instance.
-    const stub = env.MY_DURABLE_OBJECT.get(id);
+      // Create a `DurableObjectId` for an instance of the `MyDurableObject`
+      // class named "foo". Requests from all Workers to the instance named
+      // "foo" will go to a single globally unique Durable Object instance.
+      const id = env.MY_DURABLE_OBJECT.idFromName("foo");
 
-    // Call the `sayHello()` RPC method on the stub to invoke the method on
-    // the remote Durable Object instance
-    const greeting = await stub.sayHello("world");
+      // Create a stub to open a communication channel with the Durable
+      // Object instance.
+      const stub = env.MY_DURABLE_OBJECT.get(id);
 
-    return new Response(greeting);
+      return stub.fetch(request);
+    } else if (url.pathname.startsWith("/proxy/")) {
+      const id = env.MY_DURABLE_OBJECT.idFromName("foo");
+
+      // Create a stub to open a communication channel with the Durable
+      // Object instance.
+      const stub = env.MY_DURABLE_OBJECT.get(id);
+      return stub.proxy(request);
+    } else {
+      return new Response(
+        "Websocket endpoint is listenning on <code>/tunnel</code>",
+        {
+          headers: {
+            "Content-Type": "text/html",
+          },
+        },
+      );
+    }
   },
 } satisfies ExportedHandler<Env>;

@@ -1,5 +1,7 @@
 # Webhooks Proxy Tunnel
 
 ```bash
-wrangler deploy
+npm run cf-typegen
+npm start
+npm run deploy
 ```
