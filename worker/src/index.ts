@@ -118,7 +118,7 @@ export class MyDurableObject extends DurableObject {
   }
 }
 
-const DO_ID = "foo";
+const DO_NAME = "foo";
 
 export default {
   /**
@@ -144,7 +144,7 @@ export default {
       // Create a `DurableObjectId` for an instance of the `MyDurableObject`
       // class named "foo". Requests from all Workers to the instance named
       // "foo" will go to a single globally unique Durable Object instance.
-      const id = env.MY_DURABLE_OBJECT.idFromName(DO_ID);
+      const id = env.MY_DURABLE_OBJECT.idFromName(DO_NAME);
 
       // Create a stub to open a communication channel with the Durable
       // Object instance.
@@ -152,29 +152,25 @@ export default {
 
       return stub.fetch(request);
     } else if (url.pathname.startsWith("/proxy/")) {
-      const id = env.MY_DURABLE_OBJECT.idFromName(DO_ID);
+      const id = env.MY_DURABLE_OBJECT.idFromName(DO_NAME);
 
       // Create a stub to open a communication channel with the Durable
       // Object instance.
       const stub = env.MY_DURABLE_OBJECT.get(id);
       return stub.proxy(request);
-    } else if (url.pathname.startsWith("/close")) {
-      const id = env.MY_DURABLE_OBJECT.idFromName(DO_ID);
-
-      // Create a stub to open a communication channel with the Durable
-      // Object instance.
+    } else if (url.pathname == "/close") {
+      if (request.method !== "POST") {
+        return new Response("Method not allowed", { status: 405 });
+      }
+      const id = env.MY_DURABLE_OBJECT.idFromName(DO_NAME);
       const stub = env.MY_DURABLE_OBJECT.get(id);
       return stub.close();
-    } else {
-      return new Response(
-        "Websocket endpoint is listenning on <code>/tunnel</code>",
-        {
-          headers: {
-            "Content-Type": "text/html",
-          },
-        },
-      );
+    } else if (url.pathname == "/") {
+      return new Response(indexPage(url.origin), {
+        headers: { "content-type": "text/html" },
+      });
     }
+    return new Response("Not found", { status: 404 });
   },
 } satisfies ExportedHandler<Env>;
 
@@ -190,4 +186,39 @@ function withTimeout<T>(promise: Promise<T>, ms: number): Promise<T> {
       clearTimeout(timeoutId);
     });
   });
+}
+
+function indexPage(root: string): string {
+  return `
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Hello, World!</title>
+  <link
+    rel="stylesheet"
+    href="/pico.min.css"
+  >
+</head>
+<body>
+<main class="container">
+<h1>Webhooks Proxy Tunnel</h1>
+<p>Tunnel URL: <code>${root}/tunnel</code></p>
+<p>Proxy URL: <code>${root}/proxy/</code></p>
+<p>Force <button id="close" class="outline">close</button> the tunnel.</p>
+</main>
+<script>
+async function closeTunnel() {
+  const response = await fetch("/close", {
+    method: "POST",
+    body: "",
+  })
+
+  console.log(response);
+}
+document.querySelector("#close").addEventListener("click", closeTunnel);
+</script>
+</body>
+</html>`;
 }

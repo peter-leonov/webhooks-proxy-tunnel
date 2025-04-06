@@ -1,5 +1,22 @@
-// Creates a new WebSocket connection to the specified URL.
-const socket = new WebSocket("ws://localhost:8787/tunnel");
+const [_, tunnelURL, targetURL] = process.argv;
+
+function usage() {
+  console.log("Usage: node client.js <tunnelURL> <targetURL>");
+  console.log(
+    "Example: node client.js ws://https://webhooks-proxy-tunnel.YOUR_ORG.workers.dev/tunnel http://localhost:3000"
+  );
+}
+
+if (!tunnelURL) {
+  console.error("Please provide a tunnel URL.");
+  process.exit(1);
+}
+if (!targetURL) {
+  console.error("Please provide a target URL.");
+  process.exit(1);
+}
+
+const socket = new WebSocket(tunnelURL);
 
 // Executes when the connection is successfully established.
 socket.addEventListener("open", (event) => {
