@@ -1,6 +1,6 @@
 import { DurableObject } from "cloudflare:workers";
 
-const RESPONSE_TIMEOUT = 30_000; // ms
+const RESPONSE_TIMEOUT_MS = 30_000; // 30 seconds
 
 export class MyDurableObject extends DurableObject {
   // TODO: think of using a WeakMap
@@ -34,6 +34,7 @@ export class MyDurableObject extends DurableObject {
     });
 
     server.addEventListener("close", (cls: CloseEvent) => {
+      this.reject?.(new Error("server closed"));
       console.info("closing connection", cls.code, cls.reason);
       server.close(1001, `server closed (${cls.code}: ${cls.reason})`);
     });
@@ -55,7 +56,6 @@ export class MyDurableObject extends DurableObject {
       url: request.url,
       headers: Object.fromEntries(request.headers.entries()),
     };
-
     this.proxyTo.send(
       JSON.stringify({
         type: "request",
@@ -69,7 +69,7 @@ export class MyDurableObject extends DurableObject {
           this.resolve = resolve;
           this.reject = reject;
         }),
-        RESPONSE_TIMEOUT,
+        RESPONSE_TIMEOUT_MS,
       );
     } catch (error) {
       if (error instanceof TimeoutError) {
@@ -83,7 +83,28 @@ export class MyDurableObject extends DurableObject {
   }
 
   message(event: MessageEvent): void {
-    this.resolve?.(new Response(String(event.data)));
+    if (typeof event.data !== "string") {
+      console.error("message is not a string", typeof event.data);
+      this.reject?.(new Error("message is not a string"));
+      return;
+    }
+
+    const message = JSON.parse(event.data);
+    if (message.type === "response") {
+      const { status, statusText, headers, body: body64 } = message.response;
+
+      const body = atob(body64);
+
+      this.resolve?.(
+        new Response(body, {
+          status,
+          statusText,
+          headers: new Headers(headers),
+        }),
+      );
+    } else {
+      this.reject?.(new Error("unknown message type"));
+    }
   }
 
   async close(): Promise<Response> {
