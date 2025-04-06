@@ -8,7 +8,7 @@ The main limitation is that it does not stream neither the request nor the respo
 
 Create a [Cloudflare account](https://www.cloudflare.com/) on the Free plan, or if you plan to test thousands of tunnels try the [Workers Paid](https://developers.cloudflare.com/workers/platform/pricing/) plan.
 
-[Install Node.js](https://nodejs.org/en/download). Tested on `v22.14.0`.
+[Install](https://nodejs.org/en/download) Node.js. Tested on `v22.14.0`.
 
 Clone the repo:
 
@@ -19,12 +19,12 @@ cd webhooks-proxy-tunnel
 ( cd worker && npm i && npm run deploy )
 ```
 
-Then open the URL that the deploment gave you and follow the instructions.
+Then open the URL from the deploment output and follow the instructions.
 
 ## Monorepo layout
 
 The monorepo is:
 
-- the CF [worker](./worker) that does most of the work
-- the [client](./client) that replays the requests
-- the demo [server](./server) so you don't bother the AI to create one
+- the CF [worker](./worker#readme) that does most of the work
+- the [client](./client#readme) that replays the requests
+- the demo [server](./server#readme) so you don't bother the AI to create one

@@ -1,18 +1,25 @@
 const [, , tunnelURL, targetURL] = process.argv;
 
 function usage() {
-  console.log("Usage: node client.js <tunnelURL> <targetURL>");
-  console.log(
-    "Example: node client.js https://webhooks-proxy-tunnel.YOUR_ORG.workers.dev/tunnel http://localhost:3000"
+  console.error("Usage:");
+  console.error("  node src/client.js <tunnelURL> <targetURL>");
+  console.error();
+  console.error("Example:");
+  console.error(
+    "  node src/client.js https://webhooks-proxy-tunnel.YOUR_ORG.workers.dev/tunnel http://localhost:3000"
   );
 }
 
 if (!tunnelURL) {
   console.error("Please provide a tunnel URL.");
+  console.error();
+  usage();
   process.exit(1);
 }
 if (!targetURL) {
   console.error("Please provide a target URL.");
+  console.error();
+  usage();
   process.exit(1);
 }
 
