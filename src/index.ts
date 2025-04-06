@@ -1,7 +1,8 @@
 import { DurableObject } from "cloudflare:workers";
 
 export class MyDurableObject extends DurableObject {
-  tunnels: WebSocket[] = [];
+  // TODO: think of using a WeakMap
+  proxyTo: WebSocket | null = null;
   constructor(ctx: DurableObjectState, env: Env) {
     super(ctx, env);
   }
@@ -18,16 +19,17 @@ export class MyDurableObject extends DurableObject {
     // request within the Durable Object. It has the effect of "accepting" the connection,
     // and allowing the WebSocket to send and receive messages.
     server.accept();
-    this.tunnels.push(server);
+    this.proxyTo?.close(4100, "New connection");
+    this.proxyTo = server;
 
     server.addEventListener("message", (event: MessageEvent) => {
       console.log("Received message from client:", event.data);
-      // server.send(`[Durable Object] ${event.data}`);
+      server.send(`[Durable Object] ${event.data}`);
     });
 
     server.addEventListener("close", (cls: CloseEvent) => {
-      console.log("Durable Object is closing WebSocket", cls.code);
-      server.close();
+      server.close(1001, "Server closed");
+      console.log("Durable Object has closed WebSocket", server, cls.code);
     });
 
     return new Response(null, {
@@ -37,14 +39,22 @@ export class MyDurableObject extends DurableObject {
   }
 
   async proxy(request: Request): Promise<Response> {
-    this.tunnels.forEach((tunnel) => {
-      // Send the request to all connected tunnels
-      tunnel.send(`Proxying request: ${request.url}`);
-    });
+    if (!this.proxyTo) {
+      return new Response("No proxy connection", { status: 502 });
+    }
+
+    this.proxyTo.send(`Proxying request: ${request.url}`);
 
     return new Response("Proxying request");
   }
+
+  close() {
+    this.proxyTo?.close(undefined, "Manually closed");
+    this.proxyTo = null;
+  }
 }
+
+const DO_ID = "foo";
 
 export default {
   /**
@@ -70,7 +80,7 @@ export default {
       // Create a `DurableObjectId` for an instance of the `MyDurableObject`
       // class named "foo". Requests from all Workers to the instance named
       // "foo" will go to a single globally unique Durable Object instance.
-      const id = env.MY_DURABLE_OBJECT.idFromName("foo");
+      const id = env.MY_DURABLE_OBJECT.idFromName(DO_ID);
 
       // Create a stub to open a communication channel with the Durable
       // Object instance.
@@ -78,12 +88,20 @@ export default {
 
       return stub.fetch(request);
     } else if (url.pathname.startsWith("/proxy/")) {
-      const id = env.MY_DURABLE_OBJECT.idFromName("foo");
+      const id = env.MY_DURABLE_OBJECT.idFromName(DO_ID);
 
       // Create a stub to open a communication channel with the Durable
       // Object instance.
       const stub = env.MY_DURABLE_OBJECT.get(id);
       return stub.proxy(request);
+    } else if (url.pathname.startsWith("/close")) {
+      const id = env.MY_DURABLE_OBJECT.idFromName(DO_ID);
+
+      // Create a stub to open a communication channel with the Durable
+      // Object instance.
+      const stub = env.MY_DURABLE_OBJECT.get(id);
+      stub.close();
+      return new Response("Closed all tunnels");
     } else {
       return new Response(
         "Websocket endpoint is listenning on <code>/tunnel</code>",
