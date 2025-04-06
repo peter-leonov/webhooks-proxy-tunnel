@@ -107,14 +107,14 @@ export class MyDurableObject extends DurableObject {
     }
   }
 
-  async close(): Promise<Response> {
+  async close(): Promise<boolean> {
     this.reject?.(new Error("Manually closed"));
     if (!this.proxyTo) {
-      return new Response("No proxy connection");
+      return false;
     }
     this.proxyTo.close(4102, "manually closed");
     this.proxyTo = null;
-    return new Response("Closed connection");
+    return true;
   }
 }
 
@@ -159,12 +159,15 @@ export default {
       const stub = env.MY_DURABLE_OBJECT.get(id);
       return stub.proxy(request);
     } else if (url.pathname == "/close") {
-      if (request.method !== "POST") {
-        return new Response("Method not allowed", { status: 405 });
-      }
       const id = env.MY_DURABLE_OBJECT.idFromName(DO_NAME);
       const stub = env.MY_DURABLE_OBJECT.get(id);
-      return stub.close();
+
+      return new Response(
+        (await stub.close()) ? "Closed connection" : "No proxy connection",
+        {
+          headers: { "cache-control": "no-cache, no-store, max-age=0" },
+        },
+      );
     } else if (url.pathname == "/") {
       return new Response(indexPage(url.origin), {
         headers: { "content-type": "text/html" },
@@ -188,7 +191,7 @@ function withTimeout<T>(promise: Promise<T>, ms: number): Promise<T> {
   });
 }
 
-function indexPage(root: string): string {
+function indexPage(origin: string): string {
   return `
 <!doctype html>
 <html lang="en">
@@ -204,21 +207,16 @@ function indexPage(root: string): string {
 <body>
 <main class="container">
 <h1>Webhooks Proxy Tunnel</h1>
-<p>Tunnel URL: <code>${root}/tunnel</code></p>
-<p>Proxy URL: <code>${root}/proxy/</code></p>
-<p>Force <button id="close" class="outline">close</button> the tunnel.</p>
+<p>Use this tool to proxy HTTP requests made to the public URL to your project local web server.</p>
+<p>Public URL: <code>${origin}/proxy/</code></p>
+<p>Tunnel URL: <code>${origin}/tunnel</code></p>
+<p>
+  Client command:
+  <pre><code>node client.js ${origin}/tunnel http://localhost:3000/</code></pre>
+  Connecting a new client kicks out the currently connected one.
+</p>
+<p>Force <a href="/close">close</a> the tunnel if the connected client is stuck.</p>
 </main>
-<script>
-async function closeTunnel() {
-  const response = await fetch("/close", {
-    method: "POST",
-    body: "",
-  })
-
-  console.log(response);
-}
-document.querySelector("#close").addEventListener("click", closeTunnel);
-</script>
 </body>
 </html>`;
 }

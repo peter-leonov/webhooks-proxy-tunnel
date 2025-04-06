@@ -1,4 +1,4 @@
-const [_, tunnelURL, targetURL] = process.argv;
+const [, , tunnelURL, targetURL] = process.argv;
 
 function usage() {
   console.log("Usage: node client.js <tunnelURL> <targetURL>");
@@ -20,8 +20,9 @@ const socket = new WebSocket(tunnelURL);
 
 // Executes when the connection is successfully established.
 socket.addEventListener("open", (event) => {
-  console.log("Connected.", event);
-  // Sends a message to the WebSocket server.
+  console.log(
+    `proxying requests from tunnel ${tunnelURL} to target ${targetURL}`
+  );
 });
 
 socket.addEventListener("message", async (event) => {
@@ -34,7 +35,8 @@ socket.addEventListener("message", async (event) => {
     // handle all the edge cases with transporting the request
     // and response objects here (e.g. keep-alive, gzip, etc.)
     console.debug("start fetch", event.data);
-    const response = await fetch("http://localhost:3000");
+    const url = new URL(message.request.url);
+    const response = await fetch(`${targetURL}${url.pathname}`);
     let body;
     if (response.body) {
       body = Buffer.from(await response.bytes()).toString("base64");
