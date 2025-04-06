@@ -3,6 +3,7 @@ import { DurableObject } from "cloudflare:workers";
 export class MyDurableObject extends DurableObject {
   // TODO: think of using a WeakMap
   proxyTo: WebSocket | null = null;
+  resolve: ((value: Response) => void) | null = null;
   constructor(ctx: DurableObjectState, env: Env) {
     super(ctx, env);
   }
@@ -19,12 +20,12 @@ export class MyDurableObject extends DurableObject {
     // request within the Durable Object. It has the effect of "accepting" the connection,
     // and allowing the WebSocket to send and receive messages.
     server.accept();
-    this.proxyTo?.close(4100, "New connection");
+    this.proxyTo?.close(4101, "New connection");
     this.proxyTo = server;
 
     server.addEventListener("message", (event: MessageEvent) => {
       console.log("Received message from client:", event.data);
-      server.send(`[Durable Object] ${event.data}`);
+      this.message(event);
     });
 
     server.addEventListener("close", (cls: CloseEvent) => {
@@ -45,12 +46,22 @@ export class MyDurableObject extends DurableObject {
 
     this.proxyTo.send(`Proxying request: ${request.url}`);
 
-    return new Response("Proxying request");
+    return await new Promise<Response>((resolve) => {
+      this.resolve = resolve;
+    });
   }
 
-  close() {
-    this.proxyTo?.close(undefined, "Manually closed");
+  message(event: MessageEvent): void {
+    this.resolve?.(new Response(String(event.data)));
+  }
+
+  async close(): Promise<Response> {
+    if (!this.proxyTo) {
+      return new Response("No proxy connection", { status: 200 });
+    }
+    this.proxyTo?.close(4102, "Manually closed");
     this.proxyTo = null;
+    return new Response("Closed connection");
   }
 }
 
@@ -67,7 +78,7 @@ export default {
    */
   async fetch(request, env, ctx): Promise<Response> {
     const url = new URL(request.url);
-    if (url.pathname.startsWith("/tunnel/")) {
+    if (url.pathname == "/tunnel") {
       // Expect to receive a WebSocket Upgrade request.
       // If there is one, accept the request and return a WebSocket Response.
       const upgradeHeader = request.headers.get("Upgrade");
@@ -100,8 +111,7 @@ export default {
       // Create a stub to open a communication channel with the Durable
       // Object instance.
       const stub = env.MY_DURABLE_OBJECT.get(id);
-      stub.close();
-      return new Response("Closed all tunnels");
+      return stub.close();
     } else {
       return new Response(
         "Websocket endpoint is listenning on <code>/tunnel</code>",
