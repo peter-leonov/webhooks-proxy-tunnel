@@ -9,3 +9,5 @@ npm run cf-typegen
 npm start
 npm run deploy
 ```
+
+Play with the protocol using [wscat](https://github.com/websockets/wscat).

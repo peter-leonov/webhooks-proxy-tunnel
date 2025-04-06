@@ -1,0 +1,12 @@
+{
+  "name": "webhooks-proxy-tunnel-client",
+  "version": "0.0.1",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [],
+  "author": "Peter Leonov <gojpeg@gmail.com>",
+  "license": "MIT",
+  "description": "A client for the webhooks proxy tunnel"
+}
