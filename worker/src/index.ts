@@ -211,10 +211,10 @@ function indexPage(origin: string): string {
 <p>Public URL: <code>${origin}/proxy/</code></p>
 <p>Tunnel URL: <code>${origin}/tunnel</code></p>
 <p>
-  Local server URL: <input type="text" value="http://localhost:3000/" id="target-input" />
+  Local server URL: <input type="text" value="http://localhost:3000" id="target-input" />
   Client command:
   <pre><code>cd webhooks-proxy-tunnel/client
-node src/client.js ${origin}/tunnel <span id="target-span">http://localhost:3000/</span>
+node src/index.js ${origin}/tunnel <span id="target-span">http://localhost:3000</span>
 </code></pre>
   Connecting a new client kicks out the currently connected one.
 </p>
