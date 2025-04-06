@@ -3,7 +3,7 @@ const [, , tunnelURL, targetURL] = process.argv;
 function usage() {
   console.log("Usage: node client.js <tunnelURL> <targetURL>");
   console.log(
-    "Example: node client.js ws://https://webhooks-proxy-tunnel.YOUR_ORG.workers.dev/tunnel http://localhost:3000"
+    "Example: node client.js https://webhooks-proxy-tunnel.YOUR_ORG.workers.dev/tunnel http://localhost:3000"
   );
 }
 

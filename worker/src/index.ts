@@ -211,12 +211,24 @@ function indexPage(origin: string): string {
 <p>Public URL: <code>${origin}/proxy/</code></p>
 <p>Tunnel URL: <code>${origin}/tunnel</code></p>
 <p>
+  Local server URL: <input type="text" value="http://localhost:3000/" id="target-input" />
   Client command:
-  <pre><code>node client.js ${origin}/tunnel http://localhost:3000/</code></pre>
+  <pre><code>cd webhooks-proxy-tunnel/client
+node src/client.js ${origin}/tunnel <span id="target-span">http://localhost:3000/</span>
+</code></pre>
   Connecting a new client kicks out the currently connected one.
 </p>
 <p>Force <a href="/close">close</a> the tunnel if the connected client is stuck.</p>
 </main>
+<script>
+const targetInput = document.getElementById("target-input");
+const targetSpan = document.getElementById("target-span");
+targetInput.addEventListener("input", (event) => {
+  console.log("target input changed", event);
+  const value = event.target.value;
+  targetSpan.firstChild.nodeValue = value;
+})
+</script>
 </body>
 </html>`;
 }
