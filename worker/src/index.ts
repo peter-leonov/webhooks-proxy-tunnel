@@ -1,4 +1,5 @@
 import { DurableObject } from "cloudflare:workers";
+import type { RequestMessage, ResponseMessage } from "../../types/protocol";
 
 const RESPONSE_TIMEOUT_MS = 30_000; // 30 seconds
 
@@ -30,7 +31,19 @@ export class MyDurableObject extends DurableObject {
 
     server.addEventListener("message", (event: MessageEvent) => {
       console.info("got a message from client");
-      this.message(event);
+
+      if (typeof event.data !== "string") {
+        console.error("message is not a string", typeof event.data);
+        this.reject?.(new Error("message is not a string"));
+        return;
+      }
+
+      const message: ResponseMessage = JSON.parse(event.data);
+      if (message.type === "response") {
+        this.response(message);
+      } else {
+        this.reject?.(new Error("unknown message type"));
+      }
     });
 
     server.addEventListener("close", (cls: CloseEvent) => {
@@ -54,14 +67,13 @@ export class MyDurableObject extends DurableObject {
     const requestSerializable = {
       method: request.method,
       url: request.url,
-      headers: Object.fromEntries(request.headers.entries()),
+      headers: [...request.headers.entries()],
     };
-    this.proxyTo.send(
-      JSON.stringify({
-        type: "request",
-        request: requestSerializable,
-      }),
-    );
+    const requestMessage: RequestMessage = {
+      type: "request",
+      request: requestSerializable,
+    };
+    this.proxyTo.send(JSON.stringify(requestMessage));
 
     try {
       return await withTimeout(
@@ -82,29 +94,18 @@ export class MyDurableObject extends DurableObject {
     }
   }
 
-  message(event: MessageEvent): void {
-    if (typeof event.data !== "string") {
-      console.error("message is not a string", typeof event.data);
-      this.reject?.(new Error("message is not a string"));
-      return;
-    }
+  response(message: ResponseMessage): void {
+    const { status, statusText, headers, body: body64 } = message.response;
 
-    const message = JSON.parse(event.data);
-    if (message.type === "response") {
-      const { status, statusText, headers, body: body64 } = message.response;
+    const body = body64 && atob(body64);
 
-      const body = atob(body64);
-
-      this.resolve?.(
-        new Response(body, {
-          status,
-          statusText,
-          headers: new Headers(headers),
-        }),
-      );
-    } else {
-      this.reject?.(new Error("unknown message type"));
-    }
+    this.resolve?.(
+      new Response(body, {
+        status,
+        statusText,
+        headers: new Headers(headers),
+      }),
+    );
   }
 
   async close(): Promise<boolean> {
@@ -214,7 +215,7 @@ function indexPage(origin: string): string {
   Local server URL: <input type="text" value="http://localhost:3000" id="target-input" />
   Client command:
   <pre><code>cd webhooks-proxy-tunnel/client
-node src/index.js ${origin}/tunnel <span id="target-span">http://localhost:3000</span>
+npm start -- ${origin}/tunnel <span id="target-span">http://localhost:3000</span>
 </code></pre>
   Connecting a new client kicks out the currently connected one.
 </p>

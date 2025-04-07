@@ -28,3 +28,7 @@ The monorepo is:
 - the CF [worker](./worker#readme) that does most of the work
 - the [client](./client#readme) that replays the requests
 - the demo [server](./server#readme) so you don't bother the AI to create one
+
+## Contributing
+
+Feel free to create a PR with any extension you find worthy.

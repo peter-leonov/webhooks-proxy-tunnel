@@ -1,3 +1,8 @@
+import type {
+  RequestMessage,
+  ResponseMessage,
+} from "../../types/protocol";
+
 const [, , tunnelURL, targetURL] = process.argv;
 
 function usage() {
@@ -33,17 +38,20 @@ socket.addEventListener("open", (event) => {
 });
 
 socket.addEventListener("message", async (event) => {
-  console.debug("event.data", event.data);
-  const message = JSON.parse(event.data);
-  if (message.type === "ping") {
-    socket.send(JSON.stringify({ type: "pong" }));
-  } else if (message.type === "request") {
+  const message: RequestMessage = JSON.parse(event.data);
+  if (message.type === "request") {
+    console.log("got request", message.request.url);
     // As the client code is the easies to test and debug, we will
     // handle all the edge cases with transporting the request
     // and response objects here (e.g. keep-alive, gzip, etc.)
-    console.debug("start fetch", event.data);
     const url = new URL(message.request.url);
-    const response = await fetch(`${targetURL}${url.pathname}`);
+    const response = await fetch(`${targetURL}${url.pathname}`, {
+      method: message.request.method,
+      headers: new Headers(message.request.headers),
+      body: message.request.body
+        ? Buffer.from(message.request.body, "base64")
+        : undefined,
+    });
     let body;
     if (response.body) {
       body = Buffer.from(await response.bytes()).toString("base64");
@@ -55,12 +63,11 @@ socket.addEventListener("message", async (event) => {
       headers: [...response.headers.entries()],
       body,
     };
-    socket.send(
-      JSON.stringify({
-        type: "response",
-        response: responseSerializable,
-      })
-    );
+    const responseMessage: ResponseMessage = {
+      type: "response",
+      response: responseSerializable,
+    };
+    socket.send(JSON.stringify(responseMessage));
   } else {
     console.error("Unknown message type:", message.type);
   }
