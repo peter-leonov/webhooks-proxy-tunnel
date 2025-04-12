@@ -2,6 +2,7 @@
   "name": "webhooks-proxy-tunnel-client",
   "version": "0.0.1",
   "main": "index.js",
+  "type": "module",
   "scripts": {
     "start": "node --watch --experimental-strip-types --disable-warning=ExperimentalWarning src/index.ts",
     "test": "echo \"Error: no test specified\" && exit 1"

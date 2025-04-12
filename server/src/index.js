@@ -7,7 +7,8 @@ const server = http.createServer((req, res) => {
   res.statusCode = 200;
   res.setHeader("Content-Type", "text/plain");
   counter++;
-  res.end(`Hello, World #${counter}!`);
+  res.write(`Hello, World #${counter}!\n\n`);
+  req.pipe(res, { end: true });
 });
 
 const PORT = 3000;

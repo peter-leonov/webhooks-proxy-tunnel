@@ -1,7 +1,8 @@
 import type {
   RequestMessage,
   ResponseMessage,
-} from "../../types/protocol";
+} from "../../shared/protocol";
+import { fromHex, toHex } from "../../shared/hex.ts";
 
 const [, , tunnelURL, targetURL] = process.argv;
 
@@ -40,21 +41,25 @@ socket.addEventListener("open", (event) => {
 socket.addEventListener("message", async (event) => {
   const message: RequestMessage = JSON.parse(event.data);
   if (message.type === "request") {
-    console.log("got request", message.request.url);
     // As the client code is the easies to test and debug, we will
     // handle all the edge cases with transporting the request
     // and response objects here (e.g. keep-alive, gzip, etc.)
+    const headers = new Headers();
+    headers.delete("content-length");
+    headers.delete("transfer-encoding");
+    headers.delete("keep-alive");
     const url = new URL(message.request.url);
+    const requestBody = message.request.body
+      ? fromHex(message.request.body)
+      : undefined;
     const response = await fetch(`${targetURL}${url.pathname}`, {
       method: message.request.method,
-      headers: new Headers(message.request.headers),
-      body: message.request.body
-        ? Buffer.from(message.request.body, "base64")
-        : undefined,
+      headers,
+      body: requestBody,
     });
     let body;
     if (response.body) {
-      body = Buffer.from(await response.bytes()).toString("base64");
+      body = toHex(await response.bytes());
     }
 
     const responseSerializable = {

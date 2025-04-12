@@ -1,5 +1,6 @@
 import { DurableObject } from "cloudflare:workers";
-import type { RequestMessage, ResponseMessage } from "../../types/protocol";
+import type { RequestMessage, ResponseMessage } from "../../shared/protocol";
+import { toHex, fromHex } from "../../shared/hex";
 
 const RESPONSE_TIMEOUT_MS = 30_000; // 30 seconds
 
@@ -64,10 +65,13 @@ export class MyDurableObject extends DurableObject {
       return new Response("no proxy connection", { status: 502 });
     }
 
+    const body = request.body ? toHex(await request.bytes()) : undefined;
+
     const requestSerializable = {
       method: request.method,
       url: request.url,
       headers: [...request.headers.entries()],
+      body: body,
     };
     const requestMessage: RequestMessage = {
       type: "request",
@@ -95,9 +99,9 @@ export class MyDurableObject extends DurableObject {
   }
 
   response(message: ResponseMessage): void {
-    const { status, statusText, headers, body: body64 } = message.response;
+    const { status, statusText, headers, body: bodyHex } = message.response;
 
-    const body = body64 && atob(body64);
+    const body = bodyHex ? fromHex(bodyHex) : undefined;
 
     this.resolve?.(
       new Response(body, {
@@ -208,7 +212,7 @@ function indexPage(origin: string): string {
 <body>
 <main class="container">
 <h1>Webhooks Proxy Tunnel</h1>
-<p>Use this tool to proxy HTTP requests made to the public URL to your project local web server.</p>
+<p>Use <a href="https://github.com/peter-leonov/webhooks-proxy-tunnel">Webhooks Proxy Tunnel</a> to proxy HTTP requests made to the public URL to your project local web server.</p>
 <p>Public URL: <code>${origin}/proxy/</code></p>
 <p>Tunnel URL: <code>${origin}/tunnel</code></p>
 <p>
