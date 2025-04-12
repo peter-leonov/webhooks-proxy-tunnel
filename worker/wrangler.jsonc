@@ -6,7 +6,7 @@
   "$schema": "node_modules/wrangler/config-schema.json",
   "name": "webhooks-proxy-tunnel",
   "main": "src/index.ts",
-  "compatibility_date": "2025-04-06",
+  "compatibility_date": "2025-04-04",
   "migrations": [
     {
       "new_sqlite_classes": ["MyDurableObject"],

@@ -4,11 +4,17 @@ import { toHex, fromHex } from "../../shared/hex";
 
 const RESPONSE_TIMEOUT_MS = 30_000; // 30 seconds
 
+type Stats = {
+  isConnected: boolean;
+  requests: number;
+};
+
 export class MyDurableObject extends DurableObject {
   // TODO: think of using a WeakMap
   proxyTo: WebSocket | null = null;
   resolve: ((value: Response) => void) | null = null;
   reject: ((value: Error) => void) | null = null;
+  requests: number = 0;
   constructor(ctx: DurableObjectState, env: Env) {
     super(ctx, env);
   }
@@ -48,6 +54,7 @@ export class MyDurableObject extends DurableObject {
     });
 
     server.addEventListener("close", (cls: CloseEvent) => {
+      this.proxyTo = null;
       this.reject?.(new Error("server closed"));
       console.info("closing connection", cls.code, cls.reason);
       server.close(1001, `server closed (${cls.code}: ${cls.reason})`);
@@ -60,6 +67,7 @@ export class MyDurableObject extends DurableObject {
   }
 
   async proxy(request: Request): Promise<Response> {
+    this.requests++;
     console.info("proxying request", request.url);
     if (!this.proxyTo) {
       return new Response("no proxy connection", { status: 502 });
@@ -121,14 +129,39 @@ export class MyDurableObject extends DurableObject {
     this.proxyTo = null;
     return true;
   }
+
+  async stats(): Promise<Stats> {
+    return {
+      isConnected: !!this.proxyTo,
+      requests: this.requests,
+    };
+  }
 }
 
-const DO_NAME = "foo";
+function getTunnelId(path: string): string {
+  const [, , uuid] = path.split("/");
+  if (!uuid) {
+    throw new Error("Missing tunnel URL");
+  }
+  if (uuid.length !== 36) {
+    throw new Error("Invalid tunnel URL");
+  }
+  return uuid;
+}
 
 export default {
   async fetch(request, env, ctx): Promise<Response> {
     const url = new URL(request.url);
-    if (url.pathname == "/tunnel") {
+    if (url.pathname.startsWith("/tunnel/")) {
+      const tunnelId = getTunnelId(url.pathname);
+      const doId = env.MY_DURABLE_OBJECT.idFromName(tunnelId);
+      const stub = env.MY_DURABLE_OBJECT.get(doId);
+      const stats = await stub.stats();
+
+      return new Response(tunnelPage(url.origin, tunnelId, stats), {
+        headers: { "content-type": "text/html" },
+      });
+    } else if (url.pathname.startsWith("/connect/")) {
       // Expect to receive a WebSocket Upgrade request.
       // If there is one, accept the request and return a WebSocket Response.
       const upgradeHeader = request.headers.get("Upgrade");
@@ -138,32 +171,30 @@ export default {
         });
       }
 
-      const id = env.MY_DURABLE_OBJECT.idFromName(DO_NAME);
-
-      // Create a stub to open a communication channel with the Durable
-      // Object instance.
-      const stub = env.MY_DURABLE_OBJECT.get(id);
-
+      const tunnelId = getTunnelId(url.pathname);
+      const doId = env.MY_DURABLE_OBJECT.idFromName(tunnelId);
+      const stub = env.MY_DURABLE_OBJECT.get(doId);
       return stub.fetch(request);
     } else if (url.pathname.startsWith("/proxy/")) {
-      const id = env.MY_DURABLE_OBJECT.idFromName(DO_NAME);
-
-      // Create a stub to open a communication channel with the Durable
-      // Object instance.
-      const stub = env.MY_DURABLE_OBJECT.get(id);
+      const tunnelId = getTunnelId(url.pathname);
+      const doId = env.MY_DURABLE_OBJECT.idFromName(tunnelId);
+      const stub = env.MY_DURABLE_OBJECT.get(doId);
       return stub.proxy(request);
-    } else if (url.pathname == "/close") {
-      const id = env.MY_DURABLE_OBJECT.idFromName(DO_NAME);
-      const stub = env.MY_DURABLE_OBJECT.get(id);
+    } else if (url.pathname.startsWith("/close/")) {
+      const tunnelId = getTunnelId(url.pathname);
+      const doId = env.MY_DURABLE_OBJECT.idFromName(tunnelId);
+      const stub = env.MY_DURABLE_OBJECT.get(doId);
 
       return new Response(
-        (await stub.close()) ? "Closed connection" : "No proxy connection",
+        (await stub.close())
+          ? "Closed connection"
+          : "No proxy connection found, all good.",
         {
           headers: { "cache-control": "no-cache, no-store, max-age=0" },
         },
       );
     } else if (url.pathname == "/") {
-      return new Response(indexPage(url.origin), {
+      return new Response(homePage(), {
         headers: { "content-type": "text/html" },
       });
     }
@@ -185,34 +216,52 @@ function withTimeout<T>(promise: Promise<T>, ms: number): Promise<T> {
   });
 }
 
-function indexPage(origin: string): string {
+function homePage(): string {
+  const uuid = crypto.randomUUID();
   return `
 <!doctype html>
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Hello, World!</title>
-  <link
-    rel="stylesheet"
-    href="/pico.min.css"
-  >
+  <title>Webhooks Proxy Tunnel</title>
+  <link rel="stylesheet" href="/pico.min.css">
 </head>
 <body>
 <main class="container">
 <h1>Webhooks Proxy Tunnel</h1>
-<p>Use <a href="https://github.com/peter-leonov/webhooks-proxy-tunnel">Webhooks Proxy Tunnel</a> to proxy HTTP requests made to the public URL to your project local web server.</p>
-<p>Public URL: <code>${origin}/proxy/</code></p>
-<p>Tunnel URL: <code>${origin}/tunnel</code></p>
+<p>Use Webhooks Proxy Tunnel (<a href="https://github.com/peter-leonov/webhooks-proxy-tunnel">GitHub</a>) to proxy HTTP requests made to the public URL to your project local web server.</p>
+<p>Here is your very personal tunnel: <a href="/tunnel/${uuid}">${uuid}</a> (refresh the page for a new one).</p>
+</body>
+</html>`;
+}
+
+function tunnelPage(origin: string, tunnelId: string, stats: Stats): string {
+  return `
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Webhooks Proxy Tunnel / ${tunnelId}</title>
+  <link rel="stylesheet" href="/pico.min.css">
+</head>
+<body>
+<main class="container">
+<h1>Tunnel ${tunnelId}</h1>
+<p>Connected: ${stats.isConnected ? "yes" : "no"}</p>
+<p>Requests: ${stats.requests}</p>
+<p>Public URL: <code>${origin}/proxy/${tunnelId}</code></p>
+<p>Connect URL: <code>${origin}/connect/${tunnelId}</code></p>
 <p>
   Local server URL: <input type="text" value="http://localhost:3000" id="target-input" />
   Client command:
   <pre><code>cd webhooks-proxy-tunnel/client
-npm start -- ${origin}/tunnel <span id="target-span">http://localhost:3000</span>
+npm start -- ${origin}/connect/${tunnelId} <span id="target-span">http://localhost:3000</span>
 </code></pre>
   Connecting a new client kicks out the currently connected one.
 </p>
-<p>Force <a href="/close">close</a> the tunnel if the connected client is stuck.</p>
+<p>Force <a href="/close/${tunnelId}">close</a> the tunnel if the connected client got stuck.</p>
 </main>
 <script>
 const targetInput = document.getElementById("target-input");
