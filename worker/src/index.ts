@@ -229,8 +229,8 @@ function homePage(): string {
 </head>
 <body>
 <main class="container">
-<h1>Webhooks Proxy Tunnel</h1>
-<p>Use Webhooks Proxy Tunnel (<a href="https://github.com/peter-leonov/webhooks-proxy-tunnel">GitHub</a>) to proxy HTTP requests made to the public URL to your project local web server.</p>
+<h1>Webhooks Proxy Tunnel <sup><small>(<a href="https://github.com/peter-leonov/webhooks-proxy-tunnel">GitHub</a>)</small></sup></h1>
+<p>Use this tool to proxy HTTP requests made to the public URL to your project local web server.</p>
 <p>Here is your very personal tunnel: <a href="/tunnel/${uuid}">${uuid}</a> (refresh the page for a new one).</p>
 </body>
 </html>`;
@@ -249,7 +249,7 @@ function tunnelPage(origin: string, tunnelId: string, stats: Stats): string {
 <body>
 <main class="container">
 <h1>Tunnel ${tunnelId}</h1>
-<p>Connected: ${stats.isConnected ? "yes" : "no"}</p>
+<p>Connected: ${stats.isConnected ? `yes (force <a href="/close/${tunnelId}">close</a>)` : "no"}</p>
 <p>Requests: ${stats.requests}</p>
 <p>Public URL: <code>${origin}/proxy/${tunnelId}</code></p>
 <p>Connect URL: <code>${origin}/connect/${tunnelId}</code></p>
@@ -260,8 +260,10 @@ function tunnelPage(origin: string, tunnelId: string, stats: Stats): string {
 npm start -- ${origin}/connect/${tunnelId} <span id="target-span">http://localhost:3000</span>
 </code></pre>
   Connecting a new client kicks out the currently connected one.
+  It is by design as the idea is to proxy all the request to a developer machine.
+  If you want to connect multiple clients, you need to run multiple tunnels.
+  Just go to your worker <a href="/">homepage</a> to create a new tunnel.
 </p>
-<p>Force <a href="/close/${tunnelId}">close</a> the tunnel if the connected client got stuck.</p>
 </main>
 <script>
 const targetInput = document.getElementById("target-input");
