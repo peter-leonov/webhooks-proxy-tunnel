@@ -2,10 +2,10 @@
   "name": "webhooks-proxy-tunnel",
   "version": "0.0.1",
   "private": true,
-  "license": "MIT",
   "description": "A Cloudflare Worker that acts as a proxy tunnel for webhooks.",
   "main": "src/index.ts",
   "author": "Peter Leonov <gojpeg@gmail.com>",
+  "license": "MIT",
   "scripts": {
     "deploy": "wrangler deploy",
     "dev": "wrangler dev",
