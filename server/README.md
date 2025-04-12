@@ -1,14 +1,16 @@
 # Server
 
-A demo HTTP server that return unique hello-world responses.
+A demo echo HTTP server that return unique hello-world responses with the request body piped back.
 
 ## Usage
 
 ```bash
-node src/server.js
+node src/index.js
 ```
 
 ## Dev mode
+
+In watch mode:
 
 ```bash
 npm start
