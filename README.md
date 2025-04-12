@@ -2,7 +2,7 @@
 
 It is a really simple project. Essentially, it is an HTTP server (Worker) + simple pub/sub (Durable Object) + straightforward tunnel (WebSocket) + trivial tunnel client (Node.JS client).
 
-The main limitation is that it does not stream neither the request nor the response. This means that the whole request and response body data has to fit in memory (and likely be under ~100MB to fit into CF workers memory limitations).
+The main limitation is that it does not stream neither the request nor the response. This means that the whole request and response body data has to fit in memory (and likely be under ~100MB to fit into CF workers memory limitations). It does support posting binary data though (for both the requests and responses).
 
 It does support multiple parallel tunnels with unique IDs.
 
