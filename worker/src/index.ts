@@ -138,67 +138,76 @@ export class MyDurableObject extends DurableObject {
   }
 }
 
+class ClientError extends Error {}
+
 function getTunnelId(path: string): string {
   const [, , uuid] = path.split("/");
   if (!uuid) {
-    throw new Error("Missing tunnel URL");
+    throw new ClientError("Missing tunnel URL");
   }
   if (uuid.length !== 36) {
-    throw new Error("Invalid tunnel URL");
+    throw new ClientError("Invalid tunnel URL");
   }
   return uuid;
 }
 
 export default {
   async fetch(request, env, ctx): Promise<Response> {
-    const url = new URL(request.url);
-    if (url.pathname.startsWith("/tunnel/")) {
-      const tunnelId = getTunnelId(url.pathname);
-      const doId = env.MY_DURABLE_OBJECT.idFromName(tunnelId);
-      const stub = env.MY_DURABLE_OBJECT.get(doId);
-      const stats = await stub.stats();
+    try {
+      const url = new URL(request.url);
+      if (url.pathname.startsWith("/tunnel/")) {
+        const tunnelId = getTunnelId(url.pathname);
+        const doId = env.MY_DURABLE_OBJECT.idFromName(tunnelId);
+        const stub = env.MY_DURABLE_OBJECT.get(doId);
+        const stats = await stub.stats();
 
-      return new Response(tunnelPage(url.origin, tunnelId, stats), {
-        headers: { "content-type": "text/html" },
-      });
-    } else if (url.pathname.startsWith("/connect/")) {
-      // Expect to receive a WebSocket Upgrade request.
-      // If there is one, accept the request and return a WebSocket Response.
-      const upgradeHeader = request.headers.get("Upgrade");
-      if (!upgradeHeader || upgradeHeader !== "websocket") {
-        return new Response("Expected `Upgrade: websocket`", {
-          status: 426,
+        return new Response(tunnelPage(url.origin, tunnelId, stats), {
+          headers: { "content-type": "text/html" },
+        });
+      } else if (url.pathname.startsWith("/connect/")) {
+        // Expect to receive a WebSocket Upgrade request.
+        // If there is one, accept the request and return a WebSocket Response.
+        const upgradeHeader = request.headers.get("Upgrade");
+        if (!upgradeHeader || upgradeHeader !== "websocket") {
+          return new Response("Expected `Upgrade: websocket`", {
+            status: 426,
+          });
+        }
+
+        const tunnelId = getTunnelId(url.pathname);
+        const doId = env.MY_DURABLE_OBJECT.idFromName(tunnelId);
+        const stub = env.MY_DURABLE_OBJECT.get(doId);
+        return stub.fetch(request);
+      } else if (url.pathname.startsWith("/proxy/")) {
+        const tunnelId = getTunnelId(url.pathname);
+        const doId = env.MY_DURABLE_OBJECT.idFromName(tunnelId);
+        const stub = env.MY_DURABLE_OBJECT.get(doId);
+        return stub.proxy(request);
+      } else if (url.pathname.startsWith("/close/")) {
+        const tunnelId = getTunnelId(url.pathname);
+        const doId = env.MY_DURABLE_OBJECT.idFromName(tunnelId);
+        const stub = env.MY_DURABLE_OBJECT.get(doId);
+
+        return new Response(
+          (await stub.close())
+            ? "Closed connection"
+            : "No proxy connection found, all good.",
+          {
+            headers: { "cache-control": "no-cache, no-store, max-age=0" },
+          },
+        );
+      } else if (url.pathname == "/") {
+        return new Response(homePage(), {
+          headers: { "content-type": "text/html" },
         });
       }
-
-      const tunnelId = getTunnelId(url.pathname);
-      const doId = env.MY_DURABLE_OBJECT.idFromName(tunnelId);
-      const stub = env.MY_DURABLE_OBJECT.get(doId);
-      return stub.fetch(request);
-    } else if (url.pathname.startsWith("/proxy/")) {
-      const tunnelId = getTunnelId(url.pathname);
-      const doId = env.MY_DURABLE_OBJECT.idFromName(tunnelId);
-      const stub = env.MY_DURABLE_OBJECT.get(doId);
-      return stub.proxy(request);
-    } else if (url.pathname.startsWith("/close/")) {
-      const tunnelId = getTunnelId(url.pathname);
-      const doId = env.MY_DURABLE_OBJECT.idFromName(tunnelId);
-      const stub = env.MY_DURABLE_OBJECT.get(doId);
-
-      return new Response(
-        (await stub.close())
-          ? "Closed connection"
-          : "No proxy connection found, all good.",
-        {
-          headers: { "cache-control": "no-cache, no-store, max-age=0" },
-        },
-      );
-    } else if (url.pathname == "/") {
-      return new Response(homePage(), {
-        headers: { "content-type": "text/html" },
-      });
+      return new Response("Not found", { status: 404 });
+    } catch (error) {
+      if (error instanceof ClientError) {
+        return new Response(error.message, { status: 400 });
+      }
+      throw error;
     }
-    return new Response("Not found", { status: 404 });
   },
 } satisfies ExportedHandler<Env>;
 
