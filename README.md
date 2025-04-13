@@ -4,6 +4,8 @@ A tool to expose a local HTTP endpoint to the public Internet. Works by reverse 
 
 ## How to use
 
+It takes just 10 minutes: 5 mins to register a new Cloudflare account and 5 minutes to clone the repo and run the tunnel.
+
 Create a [Cloudflare account](https://www.cloudflare.com/) on the Free plan, or if you plan to test thousands of tunnels on millions of requests try the [Workers Paid](https://developers.cloudflare.com/workers/platform/pricing/) plan.
 
 [Install](https://nodejs.org/en/download) Node.js. Tested on `v22.14.0`.
