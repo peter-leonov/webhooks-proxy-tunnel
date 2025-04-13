@@ -1,5 +1,15 @@
 # Webhooks Proxy Tunnel
 
+```console
+┌───────────┐       ┌────────────────┐      ┌────────────────┐
+│ JIRA      │       │Public endpoint │      │Local dev       │
+│ GitHub    │       │at Cloudflare:  │      │server:         │
+│ GitLab    │──────►│                │─────►│                │
+│ Slack     │       │ *.workers.dev  │      │ localhost:3000 │
+│ etc...    │       │                │      │                │
+└───────────┘       └────────────────┘      └────────────────┘
+```
+
 A tool to expose a local HTTP endpoint to the public Internet. Works by reverse proxying HTTP requests through a Cloudflare worker into your local machine.
 
 ## How to use
