@@ -57,31 +57,55 @@ socket.addEventListener("message", async (event) => {
     localURL.search = url.search;
     // if you need a custom host header, you can set it here
     // headers.set("host", "example.com");
-    const response = await fetch(localURL, {
-      method: message.request.method,
-      headers,
-      body: requestBody,
-    });
-    let body;
-    if (response.body) {
-      body = toHex(await response.bytes());
-    }
+    try {
+      const response = await fetch(localURL, {
+        method: message.request.method,
+        headers,
+        body: requestBody,
+      });
+      let body;
+      if (response.body) {
+        body = toHex(await response.bytes());
+      }
 
-    const responseSerializable = {
-      status: response.status,
-      statusText: response.statusText,
-      headers: [...response.headers.entries()],
-      body,
-    };
-    const responseMessage: ResponseMessage = {
-      type: "response",
-      response: responseSerializable,
-    };
-    socket.send(JSON.stringify(responseMessage));
+      const responseSerializable = {
+        status: response.status,
+        statusText: response.statusText,
+        headers: [...response.headers.entries()],
+        body,
+      };
+      const responseMessage: ResponseMessage = {
+        type: "response",
+        response: responseSerializable,
+      };
+      socket.send(JSON.stringify(responseMessage));
+    } catch (error) {
+      console.error("Error while fetching:", error);
+      const responseMessage: ResponseMessage = {
+        type: "response",
+        response: {
+          status: 500,
+          statusText: "Internal Server Error",
+          headers: [["content-type", "text/plain"]],
+          body: stringToHex(
+            `Error while fetching the target URL.
+Please check if the target server is running on "${targetURL}".
+For more information check the tunnel client logs.
+`
+          ),
+        },
+      };
+      socket.send(JSON.stringify(responseMessage));
+    }
   } else {
     console.error("Unknown message type:", message.type);
   }
 });
+
+export function stringToHex(str: string): string {
+  const buffer = Buffer.from(str, "utf8");
+  return toHex(buffer);
+}
 
 // Executes when the connection is closed, providing the close code and reason.
 socket.addEventListener("close", (event) => {

@@ -68,7 +68,9 @@ export class MyDurableObject extends DurableObject {
     this.requests++;
     console.info("proxying request", request.url);
     if (!this.proxyTo) {
-      return new Response("no proxy connection", { status: 502 });
+      return new Response("There is no proxy connected to the tunnel.", {
+        status: 502,
+      });
     }
 
     const body = request.body ? toHex(await request.bytes()) : undefined;

@@ -34,7 +34,7 @@ Use this public URL in the third party app that is going to send webhook request
 </p>
 <p>
 For example like this:
-<pre><code>curl ${origin}/proxy/${tunnelId}</code></pre>
+<pre><code>curl -i ${origin}/proxy/${tunnelId}</code></pre>
 </p>
 <p>
 The connection now looks like this:
