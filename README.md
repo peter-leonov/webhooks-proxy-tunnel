@@ -10,7 +10,7 @@
 └───────────┘       └────────────────┘      └────────────────┘
 ```
 
-A tool to expose a local HTTP endpoint to the public Internet. Works by reverse proxying HTTP requests through a Cloudflare worker into your local machine.
+A tool to expose a local HTTP endpoint to the public Internet. Works by reverse proxying HTTP requests through a Cloudflare worker over a WebSocket into your local machine.
 
 ## How to use
 
