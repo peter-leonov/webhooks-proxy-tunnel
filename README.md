@@ -26,11 +26,6 @@ It takes just 10 minutes: 5 mins to register a new Cloudflare account and 5 minu
 
 1. Then open the `*.worker.dev` URL from the deployment output and follow the instructions there (last 30 seconds).
 
-## Previous art
-
-* of course, the first and special [ngrok](https://ngrok.com)
-* a (relatively) new [smee.io](https://smee.io)
-
 ## About
 
 This tunneling solution is free. It's expected that you self host it on your Cloudflare Free plan. It usually take about 10 minutes to deploy the whole thing from scratch and will cost you nothing, require no EULA agreement, no fine text attached, no data protection issues. Just your laptop and your trusty Cloudfare account.
@@ -54,6 +49,11 @@ The monorepo is:
 ## TODO
 
 * If this project grows any big try using the lazy websocket API that allows the DOs to hibernate to even further reduce potential costs.
+
+## Prior art
+
+* of course, the first and special [ngrok](https://ngrok.com)
+* a (relatively) new [smee.io](https://smee.io)
 
 ## Contributing
 
