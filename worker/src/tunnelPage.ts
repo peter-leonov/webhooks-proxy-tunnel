@@ -33,6 +33,10 @@ Use this public URL in the third party app that is going to send webhook request
 <pre><code>${origin}/proxy/${tunnelId}</code></pre>
 </p>
 <p>
+For example like this:
+<pre><code>curl ${origin}/proxy/${tunnelId}</code></pre>
+</p>
+<p>
 The connection now looks like this:
 <pre><code>${origin}/proxy/${tunnelId} → <span class="target-span">http://localhost:3000</span></code></pre>
 </p>
