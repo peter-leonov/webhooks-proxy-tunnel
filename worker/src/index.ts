@@ -265,7 +265,7 @@ function tunnelPage(origin: string, tunnelId: string, stats: Stats): string {
   Enter the local server URL: <input type="text" autofocus value="http://localhost:3000" id="target-input" />
 </p>
 <p>
-  Start the tunnel locally on your machine:
+  Start the tunnel locally on your machine (or container):
   <pre><code>cd webhooks-proxy-tunnel/client
 npm start -- ${origin}/connect/${tunnelId} <span class="target-span">http://localhost:3000</span>
 </code></pre>
