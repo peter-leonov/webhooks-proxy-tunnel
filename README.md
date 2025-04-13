@@ -12,12 +12,18 @@ Clone the repo:
 
 ```bash
 git clone https://github.com/peter-leonov/webhooks-proxy-tunnel.git
+```
+Then deploy the worker:
+
+
+```bash
 cd webhooks-proxy-tunnel
 # this step might ask you to log into your Cloudflare account
 ( cd worker && npm i && npm run deploy )
 ```
 
 Then open the URL from the deploment output and follow the instructions.
+Should you need to fine tune the requests that the tunnel client (the terminator) please inspect the `client/src/index.ts` source code, it's like 50 lines of trivial HTTP code. Pull requests are welcome!
 
 ## Previous art
 
