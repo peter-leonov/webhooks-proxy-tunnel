@@ -48,11 +48,16 @@ socket.addEventListener("message", async (event) => {
     headers.delete("content-length");
     headers.delete("transfer-encoding");
     headers.delete("keep-alive");
+    headers.delete("host");
     const url = new URL(message.request.url);
     const requestBody = message.request.body
       ? fromHex(message.request.body)
       : undefined;
-    const response = await fetch(`${targetURL}${url.pathname}`, {
+    const localURL = new URL(targetURL);
+    localURL.search = url.search;
+    // if you need a custom host header, you can set it here
+    // headers.set("host", "example.com");
+    const response = await fetch(localURL, {
       method: message.request.method,
       headers,
       body: requestBody,
