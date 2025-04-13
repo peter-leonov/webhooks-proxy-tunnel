@@ -239,8 +239,9 @@ function homePage(): string {
 <body>
 <main class="container">
 <h1>Webhooks Proxy Tunnel <sup><small>(<a href="https://github.com/peter-leonov/webhooks-proxy-tunnel">GitHub</a>)</small></sup></h1>
-<p>Use this tool to proxy HTTP requests made to the public URL to your project local web server.</p>
-<p>Here is your very personal tunnel: <a href="/tunnel/${uuid}">${uuid}</a> (refresh the page for a new one).</p>
+<p>This tool proxies HTTP requests made to a public URL to your project local web server.</p>
+<p>Start by clicking on the link to a fresh new unique tunnel: <a href="/tunnel/${uuid}">${uuid}</a>.</p>
+<p>Refresh the page for a new tunnel ID. There can be multiple tunnels used on a single deployment, it only depends on your Cloudflare plan limits.</p>
 </body>
 </html>`;
 }
@@ -258,30 +259,50 @@ function tunnelPage(origin: string, tunnelId: string, stats: Stats): string {
 <body>
 <main class="container">
 <h1>Tunnel ${tunnelId}</h1>
+<p>This tunnel proxies HTTP requests made to a public URL to your project local web server.</p>
+<h2>Connect</h2>
+<p>
+  Enter the local server URL: <input type="text" autofocus value="http://localhost:3000" id="target-input" />
+</p>
+<p>
+  Start the tunnel locally on your machine:
+  <pre><code>cd webhooks-proxy-tunnel/client
+npm start -- ${origin}/connect/${tunnelId} <span class="target-span">http://localhost:3000</span>
+</code></pre>
+</p>
+<p>
+Use this public URL in the third party app that is going to send webhook requests to your local server:
+<pre><code>${origin}/proxy/${tunnelId}</code></pre>
+</p>
+<p>
+The connection now looks like this:
+<pre><code>${origin}/proxy/${tunnelId} → <span class="target-span">http://localhost:3000</span></code></pre>
+</p>
+<h2>Stats</h2>
+<p><small><small>(refresh the page to update)</small></small></p>
 <p>Connected: ${stats.isConnected ? `yes (force <a href="/close/${tunnelId}">close</a>)` : "no"}</p>
 <p>Requests: ${stats.requests}</p>
-<p>Public URL: <code>${origin}/proxy/${tunnelId}</code></p>
-<p>Connect URL: <code>${origin}/connect/${tunnelId}</code></p>
 <p>
-  Local server URL: <input type="text" value="http://localhost:3000" id="target-input" />
-  Client command:
-  <pre><code>cd webhooks-proxy-tunnel/client
-npm start -- ${origin}/connect/${tunnelId} <span id="target-span">http://localhost:3000</span>
-</code></pre>
   Connecting a new client kicks out the currently connected one.
-  It is by design as the idea is to proxy all the request to a developer machine.
-  If you want to connect multiple clients, you need to run multiple tunnels.
-  Just go to your worker <a href="/">homepage</a> to create a new tunnel.
+  It is by design as the idea is to proxy all the requests to a single developer machine without any round-robin or load balancing. <a href="/">Create new tunnel</a>.
 </p>
 </main>
 <script>
 const targetInput = document.getElementById("target-input");
-const targetSpan = document.getElementById("target-span");
-targetInput.addEventListener("input", (event) => {
-  console.log("target input changed", event);
-  const value = event.target.value;
-  targetSpan.firstChild.nodeValue = value;
-})
+const targetURL = localStorage.getItem("targetURL");
+if (targetURL) {
+  targetInput.value = targetURL;
+}
+function updateUI() {
+  const value = targetInput.value;
+  localStorage.setItem("targetURL", value);
+  const targetSpans = document.querySelectorAll(".target-span");
+  targetSpans.forEach((node) => {
+    node.innerText = value;
+  });
+}
+targetInput.addEventListener("input", updateUI)
+updateUI()
 </script>
 </body>
 </html>`;
