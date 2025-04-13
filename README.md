@@ -1,12 +1,6 @@
 # Webhooks Proxy Tunnel
 
-It is a really simple project. Essentially, it is an HTTP server (Worker) + simple pub/sub (Durable Object) + straightforward tunnel (WebSocket) + trivial tunnel client (Node.JS client).
-
-The main limitation is that it does not stream neither the request nor the response. This means that the whole request and response body data has to fit in memory (and likely be under ~100MB to fit into CF workers memory limitations). It does support posting binary data though (for both the requests and responses).
-
-It does support multiple parallel tunnels with unique IDs.
-
-If this project grows any big use the lazy websocket API that allows the DOs to hibernate.
+A tool to expose a local HTTP endpoint to the public Internet. Works by reverse proxying HTTP requests through a Cloudflare worker into your local machine.
 
 ## How to use
 
@@ -25,6 +19,23 @@ cd webhooks-proxy-tunnel
 
 Then open the URL from the deploment output and follow the instructions.
 
+## Previous art
+
+* of course, the first and special [ngrok](https://ngrok.com)
+* a (relatively) new [smee.io](https://smee.io)
+
+## About
+
+It's free and expects you to self host it on Cloudflare Free plan. It usually take about 10 minutes to deploy from scratch and will cost you nothing, no EULA, no fine text, no data protection issues: just your laptop, your Cloudfare account and the Internet.
+
+Also, it is a really simple project, should take no longer than 30 mins to inspect all the code. It is, essentially, an HTTP server (the Worker) + a simple 1:1 pub/sub bus (the Durable Object) + a straightforward tunnel (over a WebSocket over HTTPS) + trivial tunnel client (Node.JS client).
+
+The main limitation is that it does not stream either the request nor the response. This means that the whole request and response body data has to fit in memory (and likely be under ~100MB to fit into CF workers memory limitations). It does support posting binary data though (for both the requests and responses).
+
+It does support multiple parallel tunnels with unique IDs.
+
+If this project grows any big use the lazy websocket API that allows the DOs to hibernate.
+
 ## Monorepo layout
 
 The monorepo is:
@@ -35,4 +46,4 @@ The monorepo is:
 
 ## Contributing
 
-Feel free to create a PR with any extension you find worthy.
+Feel free to create a PR with any extension you find worthy a PR.
