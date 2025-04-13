@@ -24,7 +24,7 @@ It takes just 10 minutes: 5 mins to register a new Cloudflare account and 5 minu
     ( cd worker && npm i && npm run deploy )
     ```
 
-1. Then open the `*.worker.dev` URL from the deploment output and follow the instructions there (last 30 seconds).
+1. Then open the `*.worker.dev` URL from the deployment output and follow the instructions there (last 30 seconds).
 
 ## Previous art
 
