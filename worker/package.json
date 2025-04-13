@@ -13,7 +13,6 @@
     "cf-typegen": "wrangler types"
   },
   "devDependencies": {
-    "@cloudflare/workers-types": "^4.20250406.0",
     "prettier": "^3.5.3",
     "typescript": "^5.5.2",
     "wrangler": "^4.7.2"
