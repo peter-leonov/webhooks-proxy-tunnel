@@ -13,8 +13,8 @@ Clone the repo:
 ```bash
 git clone https://github.com/peter-leonov/webhooks-proxy-tunnel.git
 ```
-Then deploy the worker:
 
+Then deploy the worker:
 
 ```bash
 cd webhooks-proxy-tunnel
@@ -46,9 +46,9 @@ If this project grows any big use the lazy websocket API that allows the DOs to 
 
 The monorepo is:
 
-- the CF [worker](./worker#readme) that does most of the work
-- the [client](./client#readme) that replays the requests
-- the demo [server](./server#readme) so you don't bother the AI to create one
+* the CF [worker](./worker#readme) that does most of the work
+* the [client](./client#readme) that replays the requests
+* the demo [server](./server#readme) so you don't bother the AI to create one
 
 ## Contributing
 
