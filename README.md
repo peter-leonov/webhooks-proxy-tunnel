@@ -1,5 +1,7 @@
 # Webhooks Proxy Tunnel
 
+An HTTP tunnel designed to be self hosted for free in minutes.
+
 ```console
 ┌───────────┐       ┌────────────────┐      ┌────────────────┐
 │ JIRA      │       │Public endpoint │      │Local dev       │
@@ -10,23 +12,23 @@
 └───────────┘       └────────────────┘      └────────────────┘
 ```
 
-A tool to expose a local HTTP endpoint to the public Internet. Works by reverse proxying HTTP requests through a Cloudflare worker over a WebSocket into your local machine.
+Webhooks Proxy Tunnel exposes a local HTTP endpoint to the public Internet. It works by reverse proxying HTTP requests through a Cloudflare worker over a WebSocket into your local machine's HTTP server.
 
 ## How to use
 
-It takes just 10 minutes: 5 mins to register a new Cloudflare account and 5 minutes to clone the repo and run the tunnel.
+It takes just under 10 minutes.
 
-1. Create a [Cloudflare account](https://www.cloudflare.com/) with the default free plan. You can always upgrade later to the [Workers Paid](https://developers.cloudflare.com/workers/platform/pricing/) plan if you're going to test thousands of tunnels in parallel.
+1. (5 mins) Create a [Cloudflare account](https://www.cloudflare.com/) with the default free plan. You can always upgrade later to the [Workers Paid](https://developers.cloudflare.com/workers/platform/pricing/) plan if you're going to test thousands of tunnels in parallel.
 
-1. [Install](https://nodejs.org/en/download) Node.js. Tested on `v22.14.0`.
+1. (1 min) [Install](https://nodejs.org/en/download) Node.js. Tested on `v22.14.0`.
 
-1. Clone the repo:
+1. (15 sec) Clone the repo:
 
     ```bash
     git clone https://github.com/peter-leonov/webhooks-proxy-tunnel.git
     ```
 
-1. Then deploy the worker:
+1. (45 sec) Deploy the worker:
 
     ```bash
     cd webhooks-proxy-tunnel
@@ -34,11 +36,11 @@ It takes just 10 minutes: 5 mins to register a new Cloudflare account and 5 minu
     ( cd worker && npm i && npm run deploy )
     ```
 
-1. Then open the `*.worker.dev` URL from the deployment output and follow the instructions there (last 30 seconds).
+1. (2 min) Then open the `*.worker.dev` from the console output above and follow the instructions there.
 
 ## About
 
-This tunneling solution is free. It's expected that you self host it on your Cloudflare Free plan. It usually take about 10 minutes to deploy the whole thing from scratch and will cost you nothing, require no EULA agreement, no fine text attached, no data protection issues. Just your laptop and your trusty Cloudfare account.
+This tunneling solution is free. It's expected that you self host it on your Cloudflare Free plan. It should take under 10 minutes to deploy the whole thing from scratch and will cost you nothing, require no EULA agreement, no fine text attached, no data protection issues. Just your laptop and your trusty Cloudfare account.
 
 Also, it is a really simple project, should take no longer than 30 mins to audit all the code. It is basically an HTTP server (the Worker) + a simple 1:1 pub/sub bus (the Durable Object) + a straightforward tunnel (over a WebSocket over HTTPS) + trivial tunnel client (Node.JS client).
 
@@ -46,15 +48,15 @@ The main limitation so far is that it does not stream neither the request nor th
 
 It does support multiple parallel tunnels with unique IDs.
 
-Should you need to fine tune the requests that the tunnel client makes, please, inspect the `client/src/index.ts` source code on your own for now as the client is not yet a CLI. It's like 50 lines of trivial HTTP code. Pull requests are welcome!
+Should you need to fine tune the requests that the tunnel client makes, please, inspect the `client/src/index.ts` source code on your own for now as the client is not yet a fully featured CLI. It's about 50 lines of simple Node.js HTTP code. Also, pull requests are welcome!
 
 ## Monorepo layout
 
 The monorepo is:
 
 * the CF [worker](./worker#readme) that does most of the work
-* the [client](./client#readme) that replays the requests
-* the demo echo HTTP [server](./server#readme) so you don't bother the AI to create one
+* the [client](./client#readme) that forwards the requests from the tunnel locally
+* extra: a demo HTTP [server](./server#readme) that echoes requests back (so you don't spend AI tokens creating one)
 
 ## TODO
 
@@ -62,8 +64,8 @@ The monorepo is:
 
 ## Prior art
 
-* of course, the first and special [ngrok](https://ngrok.com)
-* a (relatively) new [smee.io](https://smee.io)
+* of course, the first and special to the nginx community [ngrok](https://ngrok.com)
+* a nice and free [smee.io](https://smee.io)
 
 ## Contributing
 
