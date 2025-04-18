@@ -3,13 +3,13 @@
 An HTTP tunnel designed to be self hosted for free in minutes.
 
 ```console
-┌───────────┐       ┌────────────────┐      ┌────────────────┐
-│ JIRA      │       │Public endpoint │      │Local dev       │
-│ GitHub    │       │at Cloudflare:  │      │server:         │
-│ GitLab    │──────►│                │─────►│                │
-│ Slack     │       │ *.workers.dev  │      │ localhost:3000 │
-│ etc...    │       │                │      │                │
-└───────────┘       └────────────────┘      └────────────────┘
+┌───────────┐       ┌────────────────┐                   ┌────────────────┐
+│ JIRA      │       │Public endpoint │                   │Local dev       │
+│ GitHub    │       │at Cloudflare:  │   ┌───────────┐   │server:         │
+│ GitLab    │──────►│                ├──►│ WebSocket ├──►│                │
+│ Slack     │       │ *.workers.dev  │   └───────────┘   │ localhost:3000 │
+│ etc...    │       │                │                   │                │
+└───────────┘       └────────────────┘                   └────────────────┘
 ```
 
 Webhooks Proxy Tunnel exposes a local HTTP endpoint to the public Internet. It works by reverse proxying HTTP requests through a Cloudflare worker over a WebSocket into your local machine's HTTP server.
