@@ -36,7 +36,7 @@ It takes just under 10 minutes.
     ( cd worker && npm i && npm run deploy )
     ```
 
-1. (2 min) Then open the `*.worker.dev` from the console output above and follow the instructions there.
+1. (2 min) Then open the `https://webhooks-proxy-tunnel.YOUR_ACCOUND.workers.dev` link from the console output above and follow the instructions there.
 
 ## About
 

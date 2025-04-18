@@ -24,8 +24,7 @@ export function tunnelPage(
 </p>
 <p>
   Start the tunnel locally on your machine (or container):
-  <pre><code>cd webhooks-proxy-tunnel/client
-npm start -- ${origin}/connect/${tunnelId} <span class="target-span">http://localhost:3000</span>
+  <pre><code>(cd client && npm start -- ${origin}/connect/${tunnelId} <span class="target-span">http://localhost:3000</span>)
 </code></pre>
 </p>
 <p>
@@ -46,7 +45,7 @@ The connection now looks like this:
 <p>Requests: ${stats.requests}</p>
 <p>
   Connecting a new client kicks out the currently connected one.
-  It is by design as the idea is to proxy all the requests to a single developer machine without any round-robin or load balancing. <a href="/">Create new tunnel</a>.
+  This is by design as the idea is to proxy all the requests to a single developer machine without any round-robin or load balancing. If you need more tunnels just <a href="/">create a new one</a>!
 </p>
 </main>
 <script>
