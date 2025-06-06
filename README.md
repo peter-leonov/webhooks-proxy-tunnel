@@ -16,7 +16,7 @@ Webhooks Proxy Tunnel exposes a local HTTP endpoint to the public Internet. It w
 
 ## How to use
 
-It takes just under 10 minutes.
+It takes just under 10 minutes to set up.
 
 1. (5 mins) Create a [Cloudflare account](https://www.cloudflare.com/) with the default free plan. You can always upgrade later to the [Workers Paid](https://developers.cloudflare.com/workers/platform/pricing/) plan if you're going to test thousands of tunnels in parallel.
 
@@ -32,7 +32,7 @@ It takes just under 10 minutes.
 
     ```bash
     cd webhooks-proxy-tunnel
-    # this step might ask you to log into your Cloudflare account
+    # this step will ask you to log into your Cloudflare account
     ( cd worker && npm i && npm run deploy )
     ```
 
@@ -48,7 +48,7 @@ The main limitation so far is that it does not stream neither the request nor th
 
 It does support multiple parallel tunnels with unique IDs.
 
-Should you need to fine tune the requests that the tunnel client makes, please, inspect the `client/src/index.ts` source code on your own for now as the client is not yet a fully featured CLI. It's about 50 lines of simple Node.js HTTP code. Also, pull requests are welcome!
+Should you need to fine tune the requests that the tunnel client makes, please, inspect the `client/src/index.ts` source code on your own as the client is not a fully featured CLI yet. It's about 50 lines of simple Node.js HTTP code. Also, pull requests are welcome!
 
 ## Monorepo layout
 
