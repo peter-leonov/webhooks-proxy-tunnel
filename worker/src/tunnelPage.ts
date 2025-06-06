@@ -1,9 +1,11 @@
+import { setSecretAside } from "./setSecretAside";
 import { Stats } from "./types";
 
 export function tunnelPage(
   origin: string,
   tunnelId: string,
   stats: Stats,
+  isSecretSet: boolean,
 ): string {
   return `
 <!doctype html>
@@ -17,6 +19,7 @@ export function tunnelPage(
 <body>
 <main class="container">
 <h1>Tunnel ${tunnelId}</h1>
+${isSecretSet ? "" : setSecretAside()}
 <p>This tunnel proxies HTTP requests made to a public URL to your project local web server.</p>
 <h2>Connect</h2>
 <p>

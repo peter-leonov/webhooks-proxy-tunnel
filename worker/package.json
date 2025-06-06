@@ -10,7 +10,8 @@
     "deploy": "wrangler deploy",
     "dev": "wrangler dev",
     "start": "wrangler dev",
-    "cf-typegen": "wrangler types"
+    "cf-typegen": "wrangler types",
+    "set-new-secret": "./set-new-secret.sh"
   },
   "devDependencies": {
     "prettier": "^3.5.3",

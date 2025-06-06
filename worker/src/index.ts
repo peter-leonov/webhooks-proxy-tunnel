@@ -154,6 +154,8 @@ function getTunnelId(path: string): string {
 export default {
   async fetch(request, env, ctx): Promise<Response> {
     try {
+      console.log(env);
+      const isSecretSet = isValidSecret(env.WEBHOOKS_PROXY_TUNNEL_SECRET);
       const url = new URL(request.url);
       if (url.pathname.startsWith("/tunnel/")) {
         const tunnelId = getTunnelId(url.pathname);
@@ -161,9 +163,12 @@ export default {
         const stub = env.MY_DURABLE_OBJECT.get(doId);
         const stats = await stub.stats();
 
-        return new Response(tunnelPage(url.origin, tunnelId, stats), {
-          headers: { "content-type": "text/html" },
-        });
+        return new Response(
+          tunnelPage(url.origin, tunnelId, stats, isSecretSet),
+          {
+            headers: { "content-type": "text/html" },
+          },
+        );
       } else if (url.pathname.startsWith("/connect/")) {
         // Expect to receive a WebSocket Upgrade request.
         // If there is one, accept the request and return a WebSocket Response.
@@ -197,9 +202,14 @@ export default {
           },
         );
       } else if (url.pathname == "/") {
-        return new Response(homePage(), {
-          headers: { "content-type": "text/html" },
-        });
+        return new Response(
+          homePage({
+            isSecretSet,
+          }),
+          {
+            headers: { "content-type": "text/html" },
+          },
+        );
       }
       return new Response("Not found", { status: 404 });
     } catch (error) {
@@ -223,4 +233,9 @@ function withTimeout<T>(promise: Promise<T>, ms: number): Promise<T> {
       clearTimeout(timeoutId);
     });
   });
+}
+
+function isValidSecret(secret: unknown): boolean {
+  // A valid secret is a string of 40 characters (30 bytes in Base64).
+  return typeof secret === "string" && secret.length === 40;
 }
