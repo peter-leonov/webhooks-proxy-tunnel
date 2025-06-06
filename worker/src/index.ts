@@ -170,8 +170,33 @@ export default {
           },
         );
       } else if (url.pathname.startsWith("/connect/")) {
+        const tunnelId = getTunnelId(url.pathname);
+        if (isSecretSet) {
+          const secret = env.WEBHOOKS_PROXY_TUNNEL_SECRET;
+          const authHeader = request.headers.get("Authorization");
+          if (!authHeader) {
+            return new Response(
+              "Unauthorized. Please provide an Authorization header.",
+              { status: 401 },
+            );
+          }
+          if (!authHeader.startsWith("Bearer ")) {
+            return new Response(
+              "Unauthorized. Please provide a Bearer token.",
+              { status: 401 },
+            );
+          }
+          const token = authHeader.slice(7);
+          if (!(await isValidToken(secret, tunnelId, token))) {
+            return new Response("Unauthorized. Invalid token.", {
+              status: 401,
+            });
+          }
+        }
+
         // Expect to receive a WebSocket Upgrade request.
         // If there is one, accept the request and return a WebSocket Response.
+
         const upgradeHeader = request.headers.get("Upgrade");
         if (!upgradeHeader || upgradeHeader !== "websocket") {
           return new Response("Expected `Upgrade: websocket`", {
@@ -179,7 +204,6 @@ export default {
           });
         }
 
-        const tunnelId = getTunnelId(url.pathname);
         const doId = env.MY_DURABLE_OBJECT.idFromName(tunnelId);
         const stub = env.MY_DURABLE_OBJECT.get(doId);
         return stub.fetch(request);
@@ -238,4 +262,42 @@ function withTimeout<T>(promise: Promise<T>, ms: number): Promise<T> {
 function isValidSecret(secret: unknown): boolean {
   // A valid secret is a string of 40 characters (30 bytes in Base64).
   return typeof secret === "string" && secret.length === 40;
+}
+
+const TOKEN_STEP = 10; // 10 seconds
+
+async function isValidToken(
+  secret: string,
+  tunnelID: string,
+  token: string,
+): Promise<boolean> {
+  const baseTime = Math.floor(Date.now() / 1000 / TOKEN_STEP);
+  if (token.length !== 64) {
+    return false; // Invalid token length
+  }
+
+  const hash1 = await sha256Hex(`${tunnelID}${secret}${baseTime}`);
+  if (token === hash1) {
+    return true; // Token matches the current time hash
+  }
+
+  const hash2 = await sha256Hex(`${tunnelID}${secret}${baseTime - TOKEN_STEP}`);
+  if (token === hash2) {
+    return true; // Token matches the previous time hash
+  }
+
+  const hash3 = await sha256Hex(`${tunnelID}${secret}${baseTime + TOKEN_STEP}`);
+  if (token === hash3) {
+    return true; // Token matches the next time hash
+  }
+
+  return false; // Token does not match any expected hash
+}
+
+async function sha256Hex(input: string): Promise<string> {
+  const encoder = new TextEncoder();
+  const data = encoder.encode(input);
+  return await crypto.subtle.digest("SHA-256", data).then((hash) => {
+    return toHex(new Uint8Array(hash));
+  });
 }
