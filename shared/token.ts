@@ -1,9 +1,9 @@
 import { toHex } from "./hex.ts";
 
-const TIME_SPAN = 10; // 10 seconds
+const TIME_STEP = 10; // 10 seconds
 
 function getTime(): number {
-  return Math.floor(Date.now() / 1000 / TIME_SPAN);
+  return Math.floor(Date.now() / 1000 / TIME_STEP);
 }
 
 export async function isValidToken(
@@ -17,29 +17,54 @@ export async function isValidToken(
   }
 
   const hash1 = await tokenFromParts(tunnelID, secret, baseTime);
-  if (token === hash1) {
+  if (timingSafeCompareStringsOfKnownLength(token, hash1)) {
     return true; // Token matches the current time hash
   }
 
   const hash2 = await tokenFromParts(
     tunnelID,
     secret,
-    baseTime - TIME_SPAN
+    baseTime - TIME_STEP
   );
-  if (token === hash2) {
+  if (timingSafeCompareStringsOfKnownLength(token, hash2)) {
     return true; // Token matches the previous time hash
   }
 
   const hash3 = await tokenFromParts(
     tunnelID,
     secret,
-    baseTime + TIME_SPAN
+    baseTime + TIME_STEP
   );
-  if (token === hash3) {
+  if (timingSafeCompareStringsOfKnownLength(token, hash3)) {
     return true; // Token matches the next time hash
   }
 
   return false; // Token does not match any expected hash
+}
+
+/**
+ * Compares two strings in a timing-safe manner.
+ * This function assumes that both strings are of known length.
+ * It uses the `crypto.subtle.timingSafeEqual` method to prevent timing attacks.
+ */
+function timingSafeCompareStringsOfKnownLength(
+  strA: string,
+  strB: string
+): boolean {
+  if (strA.length !== strB.length) {
+    return false;
+  }
+
+  const encoder = new TextEncoder();
+  const a = encoder.encode(strA);
+  const b = encoder.encode(strB);
+
+  if (a.byteLength !== b.byteLength) {
+    return false;
+  }
+
+  // @ts-ignore: timingSafeEqual is not available in all environments
+  return crypto.subtle.timingSafeEqual(a, b);
 }
 
 export async function generateToken(
