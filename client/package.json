@@ -4,7 +4,8 @@
   "main": "index.js",
   "type": "module",
   "scripts": {
-    "start": "node --watch --experimental-strip-types --disable-warning=ExperimentalWarning src/index.ts",
+    "start": "node --experimental-strip-types --disable-warning=ExperimentalWarning src/index.ts",
+    "dev": "node --watch --experimental-strip-types --disable-warning=ExperimentalWarning src/index.ts",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "keywords": [],

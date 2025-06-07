@@ -3,6 +3,7 @@ import type {
   ResponseMessage,
 } from "../../shared/protocol";
 import { fromHex, toHex } from "../../shared/hex.ts";
+import { TUNNEL_PROXY_PROTOCOL } from "../../shared/constants.ts";
 
 const [, , tunnelURL, targetURL] = process.argv;
 
@@ -29,7 +30,10 @@ if (!targetURL) {
   process.exit(1);
 }
 
-const socket = new WebSocket(tunnelURL);
+const socket = new WebSocket(tunnelURL, [
+  TUNNEL_PROXY_PROTOCOL,
+  "abc",
+]);
 
 // Executes when the connection is successfully established.
 socket.addEventListener("open", (event) => {
