@@ -4,8 +4,12 @@ import type {
 } from "../../shared/protocol";
 import { fromHex, toHex } from "../../shared/hex.ts";
 import { TUNNEL_PROXY_PROTOCOL } from "../../shared/constants.ts";
+import { generateToken, tokenFromParts } from "../../shared/token.ts";
 
 const [, , tunnelURL, targetURL] = process.argv;
+
+const WEBHOOKS_PROXY_TUNNEL_SECRET =
+  process.env.WEBHOOKS_PROXY_TUNNEL_SECRET;
 
 function usage() {
   console.error("Usage:");
@@ -30,9 +34,25 @@ if (!targetURL) {
   process.exit(1);
 }
 
+if (!WEBHOOKS_PROXY_TUNNEL_SECRET) {
+  console.warn(
+    "WEBHOOKS_PROXY_TUNNEL_SECRET is not set. Anyone can connect to the tunnel."
+  );
+  console.warn(
+    "Please set the WEBHOOKS_PROXY_TUNNEL_SECRET by running `npm run set-secret` in the `./worker` directory."
+  );
+}
+
+const { pathname } = new URL(tunnelURL);
+const [, , tunnelId] = pathname.split("/");
+
+const token = WEBHOOKS_PROXY_TUNNEL_SECRET
+  ? await generateToken(tunnelId, WEBHOOKS_PROXY_TUNNEL_SECRET)
+  : "<no-secret>";
+
 const socket = new WebSocket(tunnelURL, [
   TUNNEL_PROXY_PROTOCOL,
-  "abc",
+  token,
 ]);
 
 // Executes when the connection is successfully established.
@@ -117,6 +137,6 @@ socket.addEventListener("close", (event) => {
 });
 
 // Executes if an error occurs during the WebSocket communication.
-socket.addEventListener("error", (error) => {
-  console.error("WebSocket error:", error);
+socket.addEventListener("error", (event) => {
+  console.error("WebSocket error:", (event as ErrorEvent).message);
 });

@@ -2,6 +2,7 @@ import { DurableObject } from "cloudflare:workers";
 import type { RequestMessage, ResponseMessage } from "../../shared/protocol";
 import { toHex, fromHex } from "../../shared/hex";
 import { TUNNEL_PROXY_PROTOCOL } from "../../shared/constants";
+import { isValidToken, tokenFromParts } from "../../shared/token";
 import { homePage } from "./homePage";
 import { Stats } from "./types";
 import { tunnelPage } from "./tunnelPage";
@@ -208,7 +209,6 @@ export default {
             status: 426,
           });
         }
-        console.log("HERE!");
         const doId = env.MY_DURABLE_OBJECT.idFromName(tunnelId);
         const stub = env.MY_DURABLE_OBJECT.get(doId);
         return stub.fetch(request);
@@ -267,46 +267,4 @@ function withTimeout<T>(promise: Promise<T>, ms: number): Promise<T> {
 function isValidSecret(secret: unknown): boolean {
   // A valid secret is a string of 40 characters (30 bytes in Base64).
   return typeof secret === "string" && secret.length === 40;
-}
-
-const TOKEN_STEP = 10; // 10 seconds
-
-async function isValidToken(
-  secret: string,
-  tunnelID: string,
-  token: string,
-): Promise<boolean> {
-  if (token == "abc") {
-    return true; // For testing purposes, allow a specific token
-  }
-
-  const baseTime = Math.floor(Date.now() / 1000 / TOKEN_STEP);
-  if (token.length !== 64) {
-    return false; // Invalid token length
-  }
-
-  const hash1 = await sha256Hex(`${tunnelID}${secret}${baseTime}`);
-  if (token === hash1) {
-    return true; // Token matches the current time hash
-  }
-
-  const hash2 = await sha256Hex(`${tunnelID}${secret}${baseTime - TOKEN_STEP}`);
-  if (token === hash2) {
-    return true; // Token matches the previous time hash
-  }
-
-  const hash3 = await sha256Hex(`${tunnelID}${secret}${baseTime + TOKEN_STEP}`);
-  if (token === hash3) {
-    return true; // Token matches the next time hash
-  }
-
-  return false; // Token does not match any expected hash
-}
-
-async function sha256Hex(input: string): Promise<string> {
-  const encoder = new TextEncoder();
-  const data = encoder.encode(input);
-  return await crypto.subtle.digest("SHA-256", data).then((hash) => {
-    return toHex(new Uint8Array(hash));
-  });
 }
