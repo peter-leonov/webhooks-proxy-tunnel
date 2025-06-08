@@ -162,7 +162,6 @@ function getTunnelId(path: string): string {
 export default {
   async fetch(request, env, ctx): Promise<Response> {
     try {
-      console.log(env);
       const isSecretSet = isValidSecret(env.WEBHOOKS_PROXY_TUNNEL_SECRET);
       const url = new URL(request.url);
       if (url.pathname.startsWith("/tunnel/")) {
@@ -195,7 +194,6 @@ export default {
             });
           }
 
-          console.log("Validating token", token);
           if (!(await isValidToken(secret, tunnelId, token))) {
             return new Response("Unauthorized. Invalid token.", {
               status: 401,
