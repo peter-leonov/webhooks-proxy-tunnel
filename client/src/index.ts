@@ -53,126 +53,130 @@ if (!WEBHOOKS_PROXY_TUNNEL_SECRET) {
 const { pathname } = new URL(tunnelURLStr);
 const [, , tunnelId] = pathname.split("/");
 
-const token = WEBHOOKS_PROXY_TUNNEL_SECRET
-  ? await generateToken(tunnelId, WEBHOOKS_PROXY_TUNNEL_SECRET)
-  : "<no-secret>";
+async function connect() {
+  const token = WEBHOOKS_PROXY_TUNNEL_SECRET
+    ? await generateToken(tunnelId, WEBHOOKS_PROXY_TUNNEL_SECRET)
+    : "<no-secret>";
 
-try {
-  // Partially simulate a WebSocket request to the tunnel
-  // to ensure that the tunnel is reachable and the secret is correct.
-  const preflight = await fetch(tunnelURLStr, {
-    method: "GET",
-    headers: {
-      "Sec-WebSocket-Protocol": `${TUNNEL_PROXY_PROTOCOL},${token}`,
-      [X_WEBHOOKS_PROXY_TUNNEL_PREFLIGHT]: "yes",
-    },
-  });
-  if (!preflight.ok) {
+  try {
+    // Partially simulate a WebSocket request to the tunnel
+    // to ensure that the tunnel is reachable and the secret is correct.
+    const preflight = await fetch(tunnelURLStr, {
+      method: "GET",
+      headers: {
+        "Sec-WebSocket-Protocol": `${TUNNEL_PROXY_PROTOCOL},${token}`,
+        [X_WEBHOOKS_PROXY_TUNNEL_PREFLIGHT]: "yes",
+      },
+    });
+    if (!preflight.ok) {
+      console.error(
+        `Failed to connect to the tunnel at ${tunnelURLStr}. Please check if the tunnel is running.`
+      );
+      // JSON.stringify'ing to avoid the response to mess with the terminal output.
+      console.error(
+        `Received status code ${preflight.status} (${
+          preflight.statusText
+        }) from the tunnel: ${JSON.stringify(await preflight.text())}`
+      );
+      process.exit(1);
+    }
+  } catch (error) {
     console.error(
       `Failed to connect to the tunnel at ${tunnelURLStr}. Please check if the tunnel is running.`
     );
-    // JSON.stringify'ing to avoid the response to mess with the terminal output.
-    console.error(
-      `Received status code ${preflight.status} (${
-        preflight.statusText
-      }) from the tunnel: ${JSON.stringify(await preflight.text())}`
-    );
-    process.exit(1);
+    throw error;
   }
-} catch (error) {
-  console.error(
-    `Failed to connect to the tunnel at ${tunnelURLStr}. Please check if the tunnel is running.`
-  );
-  throw error;
-}
 
-const socket = new WebSocket(tunnelURLStr, [
-  TUNNEL_PROXY_PROTOCOL,
-  token,
-]);
+  const socket = new WebSocket(tunnelURLStr, [
+    TUNNEL_PROXY_PROTOCOL,
+    token,
+  ]);
 
-// Executes when the connection is successfully established.
-socket.addEventListener("open", (event) => {
-  console.log(
-    `proxying requests from tunnel ${tunnelURLStr} to target ${targetURLStr}`
-  );
-});
+  // Executes when the connection is successfully established.
+  socket.addEventListener("open", (event) => {
+    console.log(
+      `proxying requests from tunnel ${tunnelURLStr} to target ${targetURLStr}`
+    );
+  });
 
-// Executes when the connection is closed, providing the close code and reason.
-socket.addEventListener("close", (event) => {
-  console.log("Connection closed:", event.code, event.reason);
-});
+  // Executes when the connection is closed, providing the close code and reason.
+  socket.addEventListener("close", (event) => {
+    console.log("Connection closed:", event.code, event.reason);
+  });
 
-// Executes if an error occurs during the WebSocket communication.
-socket.addEventListener("error", (event) => {
-  console.error("WebSocket error:", (event as ErrorEvent).message);
-});
+  // Executes if an error occurs during the WebSocket communication.
+  socket.addEventListener("error", (event) => {
+    console.error("WebSocket error:", (event as ErrorEvent).message);
+  });
 
-socket.addEventListener("message", async (event) => {
-  const message: RequestMessage = JSON.parse(event.data);
-  if (message.type === "request") {
-    // As the client code is the easies to test and debug, we will
-    // handle all the edge cases with transporting the request
-    // and response objects here (e.g. keep-alive, gzip, etc.)
-    const headers = new Headers(message.request.headers);
-    headers.delete("content-length");
-    headers.delete("transfer-encoding");
-    headers.delete("keep-alive");
-    headers.delete("host");
-    const requestBody = message.request.body
-      ? fromHex(message.request.body)
-      : undefined;
-    const targetURL = mergeURLs(targetURLStr, message.request.url);
-    // if you need a custom host header, you can set it here
-    const cfConnectingIp = headers.get("cf-connecting-ip");
-    if (cfConnectingIp) {
-      headers.set("x-forwarded-for", cfConnectingIp);
-    }
-    // headers.set("host", "example.com");
-    try {
-      const response = await fetch(targetURL, {
-        method: message.request.method,
-        headers,
-        body: requestBody,
-      });
-      let body;
-      if (response.body) {
-        body = toHex(await response.bytes());
+  socket.addEventListener("message", async (event) => {
+    const message: RequestMessage = JSON.parse(event.data);
+    if (message.type === "request") {
+      // As the client code is the easies to test and debug, we will
+      // handle all the edge cases with transporting the request
+      // and response objects here (e.g. keep-alive, gzip, etc.)
+      const headers = new Headers(message.request.headers);
+      headers.delete("content-length");
+      headers.delete("transfer-encoding");
+      headers.delete("keep-alive");
+      headers.delete("host");
+      const requestBody = message.request.body
+        ? fromHex(message.request.body)
+        : undefined;
+      const targetURL = mergeURLs(targetURLStr, message.request.url);
+      // if you need a custom host header, you can set it here
+      const cfConnectingIp = headers.get("cf-connecting-ip");
+      if (cfConnectingIp) {
+        headers.set("x-forwarded-for", cfConnectingIp);
       }
+      // headers.set("host", "example.com");
+      try {
+        const response = await fetch(targetURL, {
+          method: message.request.method,
+          headers,
+          body: requestBody,
+        });
+        let body;
+        if (response.body) {
+          body = toHex(await response.bytes());
+        }
 
-      const responseSerializable = {
-        status: response.status,
-        statusText: response.statusText,
-        headers: [...response.headers.entries()],
-        body,
-      };
-      const responseMessage: ResponseMessage = {
-        type: "response",
-        response: responseSerializable,
-      };
-      socket.send(JSON.stringify(responseMessage));
-    } catch (error) {
-      console.error("Error while fetching:", error);
-      const responseMessage: ResponseMessage = {
-        type: "response",
-        response: {
-          status: 500,
-          statusText: "Internal Server Error",
-          headers: [["content-type", "text/plain"]],
-          body: stringToHex(
-            `Error while fetching the target URL.
+        const responseSerializable = {
+          status: response.status,
+          statusText: response.statusText,
+          headers: [...response.headers.entries()],
+          body,
+        };
+        const responseMessage: ResponseMessage = {
+          type: "response",
+          response: responseSerializable,
+        };
+        socket.send(JSON.stringify(responseMessage));
+      } catch (error) {
+        console.error("Error while fetching:", error);
+        const responseMessage: ResponseMessage = {
+          type: "response",
+          response: {
+            status: 500,
+            statusText: "Internal Server Error",
+            headers: [["content-type", "text/plain"]],
+            body: stringToHex(
+              `Error while fetching the target URL.
 Please check if the target server is running on "${targetURLStr}".
 For more information check the tunnel client logs.
 `
-          ),
-        },
-      };
-      socket.send(JSON.stringify(responseMessage));
+            ),
+          },
+        };
+        socket.send(JSON.stringify(responseMessage));
+      }
+    } else {
+      console.error("Unknown message type:", message.type);
     }
-  } else {
-    console.error("Unknown message type:", message.type);
-  }
-});
+  });
+}
+
+await connect();
 
 export function stringToHex(str: string): string {
   const buffer = Buffer.from(str, "utf8");
