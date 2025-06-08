@@ -78,13 +78,13 @@ export class MyDurableObject extends DurableObject {
       });
     }
 
-    const body = request.body ? toHex(await request.bytes()) : undefined;
+    const bodyHex = request.body ? toHex(await request.bytes()) : undefined;
 
     const requestSerializable = {
       method: request.method,
       url: request.url,
       headers: [...request.headers.entries()],
-      body: body,
+      body: bodyHex,
     };
     const requestMessage: RequestMessage = {
       type: "request",
