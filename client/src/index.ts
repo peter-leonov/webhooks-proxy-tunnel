@@ -219,10 +219,10 @@ export function stringToHex(str: string): string {
   return toHex(buffer);
 }
 
-const PROXY_PREFIX_LENGTH =
-  "/proxy/00000000-0000-0000-0000-000000000000".length;
-
 function mergeURLs(targetURLStr: string, requestURLStr: string): URL {
+  const PROXY_PREFIX_LENGTH =
+    "/proxy/00000000-0000-0000-0000-000000000000".length;
+
   const requestURL = new URL(requestURLStr);
   const proxyPath = requestURL.pathname.substring(
     PROXY_PREFIX_LENGTH
