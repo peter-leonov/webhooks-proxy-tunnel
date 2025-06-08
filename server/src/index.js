@@ -17,7 +17,10 @@ const server = http.createServer((req, res) => {
   );
   res.write(`</code></pre></p>\n`);
   res.write(
-    `<form method="POST" action="."><input type="text" name="name" placeholder="Enter your name"><button type="submit">Submit</button></form></p>`
+    `<p><form method="POST" action="."><input type="text" name="name" value="example value for POST"><button type="submit">POST</button></form></p>`
+  );
+  res.write(
+    `<p><button onclick="fetch('.', { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ name: 'example value for PATCH' }) }).then(response => response.text()).then(text => document.write(text))">PATCH</button></p>`
   );
   res.write(`Request body:<hr><p><pre><code>`);
   req.pipe(res, { end: true });
