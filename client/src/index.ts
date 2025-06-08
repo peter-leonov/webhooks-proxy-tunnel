@@ -3,8 +3,11 @@ import type {
   ResponseMessage,
 } from "../../shared/protocol";
 import { fromHex, toHex } from "../../shared/hex.ts";
-import { TUNNEL_PROXY_PROTOCOL } from "../../shared/constants.ts";
-import { generateToken, tokenFromParts } from "../../shared/token.ts";
+import {
+  TUNNEL_PROXY_PROTOCOL,
+  X_WEBHOOKS_PROXY_TUNNEL_PREFLIGHT,
+} from "../../shared/constants.ts";
+import { generateToken } from "../../shared/token.ts";
 
 const [, , tunnelURLStr, targetURLStr] = process.argv;
 
@@ -53,6 +56,35 @@ const [, , tunnelId] = pathname.split("/");
 const token = WEBHOOKS_PROXY_TUNNEL_SECRET
   ? await generateToken(tunnelId, WEBHOOKS_PROXY_TUNNEL_SECRET)
   : "<no-secret>";
+
+try {
+  // Partially simulate a WebSocket request to the tunnel
+  // to ensure that the tunnel is reachable and the secret is correct.
+  const preflight = await fetch(tunnelURLStr, {
+    method: "GET",
+    headers: {
+      "Sec-WebSocket-Protocol": `${TUNNEL_PROXY_PROTOCOL},${token}`,
+      [X_WEBHOOKS_PROXY_TUNNEL_PREFLIGHT]: "yes",
+    },
+  });
+  if (!preflight.ok) {
+    console.error(
+      `Failed to connect to the tunnel at ${tunnelURLStr}. Please check if the tunnel is running.`
+    );
+    // JSON.stringify'ing to avoid the response to mess with the terminal output.
+    console.error(
+      `Received status code ${preflight.status} (${
+        preflight.statusText
+      }) from the tunnel: ${JSON.stringify(await preflight.text())}`
+    );
+    process.exit(1);
+  }
+} catch (error) {
+  console.error(
+    `Failed to connect to the tunnel at ${tunnelURLStr}. Please check if the tunnel is running.`
+  );
+  throw error;
+}
 
 const socket = new WebSocket(tunnelURLStr, [
   TUNNEL_PROXY_PROTOCOL,

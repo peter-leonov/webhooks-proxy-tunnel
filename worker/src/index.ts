@@ -1,7 +1,10 @@
 import { DurableObject } from "cloudflare:workers";
 import type { RequestMessage, ResponseMessage } from "../../shared/protocol";
 import { toHex, fromHex } from "../../shared/hex";
-import { TUNNEL_PROXY_PROTOCOL } from "../../shared/constants";
+import {
+  TUNNEL_PROXY_PROTOCOL,
+  X_WEBHOOKS_PROXY_TUNNEL_PREFLIGHT,
+} from "../../shared/constants";
 import { isValidToken, tokenFromParts } from "../../shared/token";
 import { homePage } from "./homePage";
 import { Stats } from "./types";
@@ -198,6 +201,12 @@ export default {
               status: 401,
             });
           }
+        }
+
+        if (request.headers.get(X_WEBHOOKS_PROXY_TUNNEL_PREFLIGHT) === "yes") {
+          // This is a preflight request to check if the tunnel is reachable.
+          // We can return a simple 200 OK response to indicate that the tunnel is ready.
+          return new Response("Tunnel is ready");
         }
 
         // Expect to receive a WebSocket Upgrade request.
