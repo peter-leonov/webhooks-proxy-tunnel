@@ -61,7 +61,8 @@ async function main(): Promise<number> {
   for (let i = 0; i < retryCount; i++) {
     try {
       console.log(`Connecting to the tunnel at ${tunnelURLStr}...`);
-      return await connect();
+      await proxy();
+      return 0;
     } catch (error) {
       if (error instanceof TypeError) {
         console.error("Error:", error.stack);
@@ -86,7 +87,7 @@ async function main(): Promise<number> {
   return 1;
 }
 
-async function connect() {
+async function proxy() {
   const { pathname } = new URL(tunnelURLStr);
   const [, , tunnelId] = pathname.split("/");
 
@@ -112,6 +113,13 @@ async function connect() {
     );
   }
 
+  let resolve: (value: unknown) => void,
+    reject: (reason?: unknown) => void;
+  const promise = new Promise((res, rej) => {
+    resolve = res;
+    reject = rej;
+  });
+
   const socket = new WebSocket(tunnelURLStr, [
     TUNNEL_PROXY_PROTOCOL,
     token,
@@ -127,11 +135,14 @@ async function connect() {
   // Executes when the connection is closed, providing the close code and reason.
   socket.addEventListener("close", (event) => {
     console.log("Connection closed:", event.code, event.reason);
+    resolve(null);
   });
 
   // Executes if an error occurs during the WebSocket communication.
   socket.addEventListener("error", (event) => {
-    console.error("WebSocket error:", (event as ErrorEvent).message);
+    reject(
+      new Error("WebSocket error: " + (event as ErrorEvent).message)
+    );
   });
 
   socket.addEventListener("message", async (event) => {
@@ -200,7 +211,7 @@ For more information check the tunnel client logs.
     }
   });
 
-  return 0;
+  return await promise;
 }
 
 export function stringToHex(str: string): string {
