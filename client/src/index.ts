@@ -68,7 +68,7 @@ socket.addEventListener("message", async (event) => {
     // As the client code is the easies to test and debug, we will
     // handle all the edge cases with transporting the request
     // and response objects here (e.g. keep-alive, gzip, etc.)
-    const headers = new Headers();
+    const headers = new Headers(message.request.headers);
     headers.delete("content-length");
     headers.delete("transfer-encoding");
     headers.delete("keep-alive");
