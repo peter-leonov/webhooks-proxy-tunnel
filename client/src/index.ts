@@ -8,12 +8,13 @@ import { generateToken, tokenFromParts } from "../../shared/token.ts";
 
 const [, , tunnelURLStr, targetURLStr] = process.argv;
 
-const WEBHOOKS_PROXY_TUNNEL_SECRET =
-  process.env.WEBHOOKS_PROXY_TUNNEL_SECRET;
-
 function usage() {
   console.error("Usage:");
   console.error("  node src/client.js <tunnelURL> <targetURL>");
+  console.error("");
+  console.error(
+    "  Use env var WEBHOOKS_PROXY_TUNNEL_SECRET to secure the tunnel."
+  );
   console.error();
   console.error("Example:");
   console.error(
@@ -33,6 +34,9 @@ if (!targetURLStr) {
   usage();
   process.exit(1);
 }
+
+const WEBHOOKS_PROXY_TUNNEL_SECRET =
+  process.env.WEBHOOKS_PROXY_TUNNEL_SECRET;
 
 if (!WEBHOOKS_PROXY_TUNNEL_SECRET) {
   console.warn(
