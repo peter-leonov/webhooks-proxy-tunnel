@@ -80,6 +80,10 @@ socket.addEventListener("message", async (event) => {
     const localURL = new URL(targetURL);
     localURL.search = url.search;
     // if you need a custom host header, you can set it here
+    const cfConnectingIp = headers.get("cf-connecting-ip");
+    if (cfConnectingIp) {
+      headers.set("x-forwarded-for", cfConnectingIp);
+    }
     // headers.set("host", "example.com");
     try {
       const response = await fetch(localURL, {
