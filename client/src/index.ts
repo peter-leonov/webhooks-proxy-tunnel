@@ -17,7 +17,7 @@ function usage() {
   console.error();
   console.error("Example:");
   console.error(
-    "  node src/client.js https://webhooks-proxy-tunnel.YOUR_ORG.workers.dev/tunnel http://localhost:3000"
+    "  node src/client.js https://webhooks-proxy-tunnel.YOUR_ORG.workers.dev/connect/00000000-0000-0000-0000-000000000000 http://localhost:3000"
   );
 }
 
