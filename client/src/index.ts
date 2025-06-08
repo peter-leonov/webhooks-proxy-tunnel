@@ -128,7 +128,7 @@ async function proxy() {
   // Executes when the connection is successfully established.
   socket.addEventListener("open", (event) => {
     console.log(
-      `proxying requests from tunnel ${tunnelURLStr} to target ${targetURLStr}`
+      `Proxying requests from tunnel ${tunnelURLStr} to target ${targetURLStr}…`
     );
   });
 
