@@ -11,7 +11,7 @@
     "dev": "wrangler dev",
     "start": "wrangler dev",
     "cf-typegen": "wrangler types",
-    "set-new-secret": "./set-new-secret.sh"
+    "reset-secret": "./reset-secret.sh"
   },
   "devDependencies": {
     "prettier": "^3.5.3",

@@ -6,7 +6,7 @@ To deploy this worker you need to register at Cloudflare. The Free plan should b
 
 ```bash
 npm i
-npm run generate-secret
+npm run reset-secret
 npm run deploy
 ```
 
