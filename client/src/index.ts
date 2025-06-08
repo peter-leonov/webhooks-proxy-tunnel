@@ -66,6 +66,16 @@ socket.addEventListener("open", (event) => {
   );
 });
 
+// Executes when the connection is closed, providing the close code and reason.
+socket.addEventListener("close", (event) => {
+  console.log("Connection closed:", event.code, event.reason);
+});
+
+// Executes if an error occurs during the WebSocket communication.
+socket.addEventListener("error", (event) => {
+  console.error("WebSocket error:", (event as ErrorEvent).message);
+});
+
 socket.addEventListener("message", async (event) => {
   const message: RequestMessage = JSON.parse(event.data);
   if (message.type === "request") {
@@ -136,16 +146,6 @@ export function stringToHex(str: string): string {
   const buffer = Buffer.from(str, "utf8");
   return toHex(buffer);
 }
-
-// Executes when the connection is closed, providing the close code and reason.
-socket.addEventListener("close", (event) => {
-  console.log("Connection closed:", event.code, event.reason);
-});
-
-// Executes if an error occurs during the WebSocket communication.
-socket.addEventListener("error", (event) => {
-  console.error("WebSocket error:", (event as ErrorEvent).message);
-});
 
 const PROXY_PREFIX_LENGTH =
   "/proxy/00000000-0000-0000-0000-000000000000".length;
