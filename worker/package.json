@@ -11,6 +11,7 @@
     "dev": "wrangler dev",
     "start": "wrangler dev",
     "cf-typegen": "wrangler types",
+    "typecheck": "npx tsc --noEmit",
     "reset-secret": "./reset-secret.sh"
   },
   "devDependencies": {
