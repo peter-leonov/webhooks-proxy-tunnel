@@ -93,7 +93,7 @@ async function proxy() {
 
   const token = WEBHOOKS_PROXY_TUNNEL_SECRET
     ? await generateToken(tunnelId, WEBHOOKS_PROXY_TUNNEL_SECRET)
-    : "<no-secret>";
+    : "no-secret";
 
   // Partially simulate a WebSocket request to the tunnel
   // to ensure that the tunnel is reachable and the secret is correct.
