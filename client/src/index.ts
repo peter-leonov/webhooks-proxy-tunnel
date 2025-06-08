@@ -50,41 +50,66 @@ if (!WEBHOOKS_PROXY_TUNNEL_SECRET) {
   );
 }
 
-const { pathname } = new URL(tunnelURLStr);
-const [, , tunnelId] = pathname.split("/");
+process.exit(await main());
+
+async function main(): Promise<number> {
+  const sleep = (timeout: number) =>
+    new Promise((resolve) => setTimeout(resolve, timeout));
+
+  // Try to connect to the tunnel every second for 5 seconds.
+  const retryCount = 5;
+  for (let i = 0; i < retryCount; i++) {
+    try {
+      console.log(`Connecting to the tunnel at ${tunnelURLStr}...`);
+      return await connect();
+    } catch (error) {
+      if (error instanceof TypeError) {
+        console.error("Error:", error.stack);
+      } else {
+        console.error("Unexpected error:", error);
+      }
+      if (i < retryCount - 1) {
+        console.log(
+          `Retrying in 1 second... (${i + 1}/${retryCount})`
+        );
+        await sleep(1000);
+      } else {
+        console.error("Max retries reached.");
+      }
+    }
+  }
+
+  console.error(
+    `Failed to connect to the tunnel at ${tunnelURLStr}. Please check if the tunnel is running.`
+  );
+
+  return 1;
+}
 
 async function connect() {
+  const { pathname } = new URL(tunnelURLStr);
+  const [, , tunnelId] = pathname.split("/");
+
   const token = WEBHOOKS_PROXY_TUNNEL_SECRET
     ? await generateToken(tunnelId, WEBHOOKS_PROXY_TUNNEL_SECRET)
     : "<no-secret>";
 
-  try {
-    // Partially simulate a WebSocket request to the tunnel
-    // to ensure that the tunnel is reachable and the secret is correct.
-    const preflight = await fetch(tunnelURLStr, {
-      method: "GET",
-      headers: {
-        "Sec-WebSocket-Protocol": `${TUNNEL_PROXY_PROTOCOL},${token}`,
-        [X_WEBHOOKS_PROXY_TUNNEL_PREFLIGHT]: "yes",
-      },
-    });
-    if (!preflight.ok) {
-      console.error(
-        `Failed to connect to the tunnel at ${tunnelURLStr}. Please check if the tunnel is running.`
-      );
-      // JSON.stringify'ing to avoid the response to mess with the terminal output.
-      console.error(
-        `Received status code ${preflight.status} (${
-          preflight.statusText
-        }) from the tunnel: ${JSON.stringify(await preflight.text())}`
-      );
-      process.exit(1);
-    }
-  } catch (error) {
-    console.error(
-      `Failed to connect to the tunnel at ${tunnelURLStr}. Please check if the tunnel is running.`
+  // Partially simulate a WebSocket request to the tunnel
+  // to ensure that the tunnel is reachable and the secret is correct.
+  const preflight = await fetch(tunnelURLStr, {
+    method: "GET",
+    headers: {
+      "Sec-WebSocket-Protocol": `${TUNNEL_PROXY_PROTOCOL},${token}`,
+      [X_WEBHOOKS_PROXY_TUNNEL_PREFLIGHT]: "yes",
+    },
+  });
+  if (!preflight.ok) {
+    // JSON.stringify'ing to avoid the response to mess with the terminal output.
+    throw new TypeError(
+      `Received status code ${preflight.status} (${
+        preflight.statusText
+      }) from the tunnel: ${JSON.stringify(await preflight.text())}`
     );
-    throw error;
   }
 
   const socket = new WebSocket(tunnelURLStr, [
@@ -174,9 +199,9 @@ For more information check the tunnel client logs.
       console.error("Unknown message type:", message.type);
     }
   });
-}
 
-await connect();
+  return 0;
+}
 
 export function stringToHex(str: string): string {
   const buffer = Buffer.from(str, "utf8");
