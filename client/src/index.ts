@@ -6,7 +6,7 @@ import { fromHex, toHex } from "../../shared/hex.ts";
 import { TUNNEL_PROXY_PROTOCOL } from "../../shared/constants.ts";
 import { generateToken, tokenFromParts } from "../../shared/token.ts";
 
-const [, , tunnelURL, targetURL] = process.argv;
+const [, , tunnelURLStr, targetURLStr] = process.argv;
 
 const WEBHOOKS_PROXY_TUNNEL_SECRET =
   process.env.WEBHOOKS_PROXY_TUNNEL_SECRET;
@@ -21,13 +21,13 @@ function usage() {
   );
 }
 
-if (!tunnelURL) {
+if (!tunnelURLStr) {
   console.error("Please provide a tunnel URL.");
   console.error();
   usage();
   process.exit(1);
 }
-if (!targetURL) {
+if (!targetURLStr) {
   console.error("Please provide a target URL.");
   console.error();
   usage();
@@ -43,14 +43,14 @@ if (!WEBHOOKS_PROXY_TUNNEL_SECRET) {
   );
 }
 
-const { pathname } = new URL(tunnelURL);
+const { pathname } = new URL(tunnelURLStr);
 const [, , tunnelId] = pathname.split("/");
 
 const token = WEBHOOKS_PROXY_TUNNEL_SECRET
   ? await generateToken(tunnelId, WEBHOOKS_PROXY_TUNNEL_SECRET)
   : "<no-secret>";
 
-const socket = new WebSocket(tunnelURL, [
+const socket = new WebSocket(tunnelURLStr, [
   TUNNEL_PROXY_PROTOCOL,
   token,
 ]);
@@ -58,7 +58,7 @@ const socket = new WebSocket(tunnelURL, [
 // Executes when the connection is successfully established.
 socket.addEventListener("open", (event) => {
   console.log(
-    `proxying requests from tunnel ${tunnelURL} to target ${targetURL}`
+    `proxying requests from tunnel ${tunnelURLStr} to target ${targetURLStr}`
   );
 });
 
@@ -73,12 +73,10 @@ socket.addEventListener("message", async (event) => {
     headers.delete("transfer-encoding");
     headers.delete("keep-alive");
     headers.delete("host");
-    const url = new URL(message.request.url);
     const requestBody = message.request.body
       ? fromHex(message.request.body)
       : undefined;
-    const localURL = new URL(targetURL);
-    localURL.search = url.search;
+    const targetURL = mergeURLs(targetURLStr, message.request.url);
     // if you need a custom host header, you can set it here
     const cfConnectingIp = headers.get("cf-connecting-ip");
     if (cfConnectingIp) {
@@ -86,7 +84,7 @@ socket.addEventListener("message", async (event) => {
     }
     // headers.set("host", "example.com");
     try {
-      const response = await fetch(localURL, {
+      const response = await fetch(targetURL, {
         method: message.request.method,
         headers,
         body: requestBody,
@@ -117,7 +115,7 @@ socket.addEventListener("message", async (event) => {
           headers: [["content-type", "text/plain"]],
           body: stringToHex(
             `Error while fetching the target URL.
-Please check if the target server is running on "${targetURL}".
+Please check if the target server is running on "${targetURLStr}".
 For more information check the tunnel client logs.
 `
           ),
@@ -144,3 +142,36 @@ socket.addEventListener("close", (event) => {
 socket.addEventListener("error", (event) => {
   console.error("WebSocket error:", (event as ErrorEvent).message);
 });
+
+const PROXY_PREFIX_LENGTH =
+  "/proxy/00000000-0000-0000-0000-000000000000".length;
+
+function mergeURLs(targetURLStr: string, requestURLStr: string): URL {
+  const requestURL = new URL(requestURLStr);
+  const proxyPath = requestURL.pathname.substring(
+    PROXY_PREFIX_LENGTH
+  );
+
+  const finalURL = new URL(targetURLStr);
+  if (finalURL.pathname == "/") {
+    finalURL.pathname = proxyPath;
+  } else if (
+    finalURL.pathname.endsWith("/") &&
+    proxyPath.startsWith("/")
+  ) {
+    finalURL.pathname += proxyPath.slice(1);
+  } else {
+    finalURL.pathname += proxyPath;
+  }
+
+  const targetURL = new URL(targetURLStr);
+  // Preserve the search parameters from the target URL
+  for (const [key, value] of targetURL.searchParams) {
+    finalURL.searchParams.set(key, value);
+  }
+  for (const [key, value] of requestURL.searchParams) {
+    finalURL.searchParams.set(key, value);
+  }
+
+  return finalURL;
+}
