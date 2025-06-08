@@ -21,4 +21,4 @@ SECRET="$(openssl rand -base64 30)"
 echo "✅ Secret generated and saved to .dev.vars"
 
 echo "Putting the secret to the worker..."
-echo "${SECRET}" | npx wrangler secret put WEBHOOKS_PROXY_TUNNEL_SECRET
+npx wrangler secret bulk .dev.vars
