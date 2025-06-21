@@ -33,10 +33,12 @@ It takes just under 10 minutes to set up.
     ```bash
     cd webhooks-proxy-tunnel
     # this step will ask you to log into your Cloudflare account
-    ( cd worker && npm i && npm run deploy )
+    ( cd worker && npm i && npm run reset-secret && npm run deploy )
     ```
 
-1. (2 min) Then open the `https://webhooks-proxy-tunnel.YOUR_ACCOUND.workers.dev` link from the console output above and follow the instructions there.
+1. (2 min) Then open the `https://webhooks-proxy-tunnel.YOUR_ACCOUNT.workers.dev` link from the console output above and follow the instructions there.
+
+If you don't want the client to use authentication, just remove the `npm run reset-secret` from the command above and delete the secret in the Cloudflare Workers dashboard. This will make the client use a public endpoint without any authentication. Not recommended for production use.
 
 ## About
 
