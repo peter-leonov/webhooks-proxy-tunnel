@@ -117,8 +117,6 @@ if (!WEBHOOKS_PROXY_TUNNEL_SECRET) {
   );
 }
 
-process.exit(await main());
-
 async function main(): Promise<number> {
   const sleep = (timeout: number) =>
     new Promise((resolve) => setTimeout(resolve, timeout));
@@ -366,3 +364,5 @@ function mergeURLs(targetURLStr: string, requestURLStr: string): URL {
 
   return finalURL;
 }
+
+process.exit(await main());
