@@ -209,6 +209,7 @@ async function proxy() {
 
     const message: RequestMessage = JSON.parse(event.data);
     if (message.type === "request") {
+      console.log(`Received request: ${message.request.method}`);
       // As the client code is the easies to test and debug, we will
       // handle all the edge cases with transporting the request
       // and response objects here (e.g. keep-alive, gzip, etc.)
