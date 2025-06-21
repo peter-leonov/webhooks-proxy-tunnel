@@ -78,6 +78,10 @@ It does support multiple parallel tunnels with unique IDs.
 
 Should you need to fine tune the requests that the tunnel client makes, please, inspect the `client/src/index.ts` source code on your own as the client is not a fully featured CLI yet. It's about 50 lines of simple Node.js HTTP code. Also, pull requests are welcome!
 
+## Changelog
+
+See the [CHANGELOG](./CHANGELOG.md) for the latest changes.
+
 ## Monorepo layout
 
 The monorepo is:
