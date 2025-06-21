@@ -97,6 +97,12 @@ if (INACTIVE_TIMEOUT_MIN > 0) {
 // Start counting inactivity timeout right away.
 resetInactiveTimeout();
 
+const BASIC_AUTH = process.env.WEBHOOKS_PROXY_TUNNEL_BASIC_AUTH;
+if (BASIC_AUTH) {
+  console.log(
+    `Using basic auth for the tunnel: ${BASIC_AUTH.split(":")[0]}:***`
+  );
+}
 const WEBHOOKS_PROXY_TUNNEL_SECRET =
   process.env.WEBHOOKS_PROXY_TUNNEL_SECRET;
 
@@ -214,6 +220,59 @@ async function proxy() {
       // handle all the edge cases with transporting the request
       // and response objects here (e.g. keep-alive, gzip, etc.)
       const headers = new Headers(message.request.headers);
+
+      if (BASIC_AUTH) {
+        const [username, password] = BASIC_AUTH.split(":");
+        const basic = headers.get("authorization");
+        if (!basic || !basic.startsWith("Basic ")) {
+          console.warn(
+            `Basic Auth is enabled, but no credentials provided.`
+          );
+          const responseMessage: ResponseMessage = {
+            type: "response",
+            response: {
+              status: 401,
+              statusText: "Unauthorized",
+              headers: [
+                ["content-type", "text/plain"],
+                ["www-authenticate", "Basic"],
+              ],
+              body: stringToHex(
+                `Unauthorized. Please provide the correct Basic Auth credentials.`
+              ),
+            },
+          };
+          socket.send(JSON.stringify(responseMessage));
+          return;
+        }
+        const decoded = atob(basic.slice(6));
+        const [reqUsername, reqPassword] = decoded.split(":");
+        if (reqUsername !== username || reqPassword !== password) {
+          console.warn(
+            `Basic Auth credentials provided, but they are incorrect.`
+          );
+          const responseMessage: ResponseMessage = {
+            type: "response",
+            response: {
+              status: 401,
+              statusText: "Unauthorized",
+              headers: [
+                ["content-type", "text/plain"],
+                ["www-authenticate", "Basic"],
+              ],
+              body: stringToHex(
+                `Unauthorized. Please provide the correct Basic Auth credentials.`
+              ),
+            },
+          };
+          socket.send(JSON.stringify(responseMessage));
+          return;
+        }
+        console.log(
+          `Basic Auth credentials provided and verified: ${username}:***`
+        );
+      }
+
       headers.delete("content-length");
       headers.delete("transfer-encoding");
       headers.delete("keep-alive");
