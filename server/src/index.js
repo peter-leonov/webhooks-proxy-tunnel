@@ -7,6 +7,10 @@ const server = http.createServer((req, res) => {
   res.statusCode = 200;
   res.setHeader("Content-Type", "text/html");
   counter++;
+  res.write(`<link
+  rel="stylesheet"
+  href="https://cdn.jsdelivr.net/npm/@picocss/pico@2/css/pico.min.css"
+>`);
   res.write(`<p>Request #${counter}!</p><p>\n`);
   res.write(`<p><pre><code>`);
   res.write(`${req.method} ${req.url}\n`);
