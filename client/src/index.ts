@@ -113,7 +113,7 @@ if (!WEBHOOKS_PROXY_TUNNEL_SECRET) {
     "WEBHOOKS_PROXY_TUNNEL_SECRET is not set. Anyone can connect to the tunnel."
   );
   console.warn(
-    "Please set the WEBHOOKS_PROXY_TUNNEL_SECRET by running `npm run reset-secret` in the `./worker` directory."
+    "Please set the WEBHOOKS_PROXY_TUNNEL_SECRET by running `npm run generate-secret` in the `./worker` directory."
   );
 }
 

@@ -24,21 +24,21 @@ It takes just under 10 minutes to set up.
 
 1. (15 sec) Clone the repo:
 
-    ```bash
-    git clone https://github.com/peter-leonov/webhooks-proxy-tunnel.git
-    ```
+   ```bash
+   git clone https://github.com/peter-leonov/webhooks-proxy-tunnel.git
+   ```
 
 1. (45 sec) Deploy the worker:
 
-    ```bash
-    cd webhooks-proxy-tunnel
-    # this step will ask you to log into your Cloudflare account
-    ( cd worker && npm i && npm run reset-secret && npm run deploy )
-    ```
+   ```bash
+   cd webhooks-proxy-tunnel
+   # this step will ask you to log into your Cloudflare account
+   ( cd worker && npm i && npm run generate-secret && npm run deploy )
+   ```
 
 1. (2 min) Then open the `https://webhooks-proxy-tunnel.YOUR_ACCOUNT.workers.dev` link from the console output above and follow the instructions there.
 
-If you don't want the client to use authentication, just remove the `npm run reset-secret` from the command above and delete the secret in the Cloudflare Workers dashboard. This will make the client use a public endpoint without any authentication. Not recommended for production use.
+If you don't want the client to use authentication, just remove the `npm run generate-secret` from the command above and delete the secret in the Cloudflare Workers dashboard. This will make the client use a public endpoint without any authentication. Not recommended for production use.
 
 ## About
 
@@ -56,18 +56,18 @@ Should you need to fine tune the requests that the tunnel client makes, please, 
 
 The monorepo is:
 
-* the CF [worker](./worker#readme) that does most of the work
-* the [client](./client#readme) that forwards the requests from the tunnel locally
-* extra: a demo HTTP [server](./server#readme) that echoes requests back (so you don't spend AI tokens creating one)
+- the CF [worker](./worker#readme) that does most of the work
+- the [client](./client#readme) that forwards the requests from the tunnel locally
+- extra: a demo HTTP [server](./server#readme) that echoes requests back (so you don't spend AI tokens creating one)
 
 ## TODO
 
-* If this project grows any big try using the lazy websocket API that allows the DOs to hibernate to even further reduce potential costs.
+- If this project grows any big try using the lazy websocket API that allows the DOs to hibernate to even further reduce potential costs.
 
 ## Prior art
 
-* of course, the first and special to the nginx community [ngrok](https://ngrok.com)
-* a nice and free [smee.io](https://smee.io)
+- of course, the first and special to the nginx community [ngrok](https://ngrok.com)
+- a nice and free [smee.io](https://smee.io)
 
 ## Contributing
 
