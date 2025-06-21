@@ -1,4 +1,4 @@
-# Webhooks Proxy Tunnel
+# Webhooks Proxy Tunnel    [![NPM Package](https://img.shields.io/github/actions/workflow/status/peter-leonov/webhooks-proxy-tunnel/ci.yaml)](https://github.com/peter-leonov/webhooks-proxy-tunnel/actions/workflows/ci.yaml)
 
 Free secure self-hosted HTTPS tunnel in under 10 minutes.
 
