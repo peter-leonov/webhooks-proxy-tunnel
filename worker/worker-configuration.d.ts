@@ -3,7 +3,7 @@
 // Runtime types generated with workerd@1.20250617.0 2025-04-04 
 declare namespace Cloudflare {
 	interface Env {
-		WEBHOOKS_PROXY_TUNNEL_SECRET: string;
+		WEBHOOKS_PROXY_TUNNEL_SECRET: string | undefined;
 		MY_DURABLE_OBJECT: DurableObjectNamespace<import("./src/index").MyDurableObject>;
 		ASSETS: Fetcher;
 	}

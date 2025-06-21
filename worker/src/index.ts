@@ -162,7 +162,8 @@ function getTunnelId(path: string): string {
 export default {
   async fetch(request, env, ctx): Promise<Response> {
     try {
-      const isSecretSet = isValidSecret(env.WEBHOOKS_PROXY_TUNNEL_SECRET);
+      const secret = env.WEBHOOKS_PROXY_TUNNEL_SECRET;
+      const secretIsValid = isValidSecret(secret);
       const url = new URL(request.url);
       if (url.pathname.startsWith("/tunnel/")) {
         const tunnelId = getTunnelId(url.pathname);
@@ -171,15 +172,14 @@ export default {
         const stats = await stub.stats();
 
         return new Response(
-          tunnelPage(url.origin, tunnelId, stats, isSecretSet),
+          tunnelPage(url.origin, tunnelId, stats, secretIsValid),
           {
             headers: { "content-type": "text/html" },
           },
         );
       } else if (url.pathname.startsWith("/connect/")) {
         const tunnelId = getTunnelId(url.pathname);
-        if (isSecretSet) {
-          const secret = env.WEBHOOKS_PROXY_TUNNEL_SECRET;
+        if (secretIsValid) {
           const swspHeader = request.headers.get("Sec-WebSocket-Protocol");
           if (!swspHeader) {
             return new Response(
@@ -240,7 +240,7 @@ export default {
       } else if (url.pathname == "/") {
         return new Response(
           homePage({
-            isSecretSet,
+            isSecretSet: secretIsValid,
           }),
           {
             headers: { "content-type": "text/html" },
@@ -271,7 +271,7 @@ function withTimeout<T>(promise: Promise<T>, ms: number): Promise<T> {
   });
 }
 
-function isValidSecret(secret: unknown): boolean {
+function isValidSecret(secret: unknown): secret is string {
   // A valid secret is a string of 40 characters (30 bytes in Base64).
   return typeof secret === "string" && secret.length === 40;
 }
