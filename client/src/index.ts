@@ -229,6 +229,25 @@ async function proxy() {
   return await promise;
 }
 
+/**
+ * A list of headers that are safe to forward to the target server.
+ *
+ * These headers are commonly used in HTTP requests and are generally safe to forward.
+ * Feel free to modify this list based on your requirements.
+ */
+const SAFE_HEADERS = new Set([
+  "cookie",
+  "accept",
+  "accept-encoding",
+  "accept-language",
+  "cache-control",
+  "authorization",
+  "content-type",
+  "user-agent",
+  "x-forwarded-for",
+  "cf-connecting-ip",
+]);
+
 async function handleRequestMessage(
   request: ProxyRequest
 ): Promise<ProxyResponse> {
@@ -236,7 +255,10 @@ async function handleRequestMessage(
   // As the client code is the easies to test and debug, we will
   // handle all the edge cases with transporting the request
   // and response objects here (e.g. keep-alive, gzip, etc.)
-  const headers = new Headers(request.headers);
+  const safeHeaders = request.headers.filter(([key]) =>
+    SAFE_HEADERS.has(key.toLowerCase())
+  );
+  const headers = new Headers(safeHeaders);
 
   if (BASIC_AUTH) {
     const [username, password] = BASIC_AUTH.split(":");
@@ -280,10 +302,6 @@ async function handleRequestMessage(
     );
   }
 
-  headers.delete("content-length");
-  headers.delete("transfer-encoding");
-  headers.delete("keep-alive");
-  headers.delete("host");
   const requestBody = request.body
     ? fromHex(request.body)
     : undefined;
