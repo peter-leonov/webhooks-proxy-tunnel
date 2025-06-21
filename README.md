@@ -1,6 +1,6 @@
 # Webhooks Proxy Tunnel
 
-An HTTP tunnel designed to be self hosted for free in minutes.
+Free secure self-hosted HTTPS tunnel in under 10 minutes.
 
 ```console
 ┌───────────┐     ┌─────────────────┐                       ┌────────────────┐
@@ -12,7 +12,7 @@ An HTTP tunnel designed to be self hosted for free in minutes.
 └───────────┘     └─────────────────┘                       └────────────────┘
 ```
 
-Webhooks Proxy Tunnel exposes a local HTTP endpoint to the public Internet. It works by reverse proxying HTTP requests through a Cloudflare worker over a WebSocket into your local machine's HTTP server.
+Webhooks Proxy Tunnel exposes a local HTTP endpoint to the public Internet. It works by reverse proxying HTTP requests through a Cloudflare worker over a WebSocket into your local machine's HTTP server. All through a secure HTTPS connection.
 
 ## How to use
 
