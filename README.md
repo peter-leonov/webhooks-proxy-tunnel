@@ -33,12 +33,20 @@ It takes just under 10 minutes to set up.
    ```bash
    cd webhooks-proxy-tunnel
    # this step will ask you to log into your Cloudflare account
-   ( cd worker && npm i && npm run generate-secret && npm run deploy )
+   ( cd worker && npm i && npm run deploy )
    ```
 
 1. (2 min) Then open the `https://webhooks-proxy-tunnel.YOUR_ACCOUNT.workers.dev` link from the console output above and follow the instructions there.
 
-If you don't want the client to use authentication, just remove the `npm run generate-secret` from the command above and delete the secret in the Cloudflare Workers dashboard. This will make the client use a public endpoint without any authentication. Not recommended for production use.
+## Security
+
+The tool uses cryptographically random unique tunnel IDs (UUID v4) to avoid collisions, but also to provide basic security out of the box. It's not possible to connect to the worker without knowing the tunnel ID. But we all know that security through obscurity can get us only so far. You can significantly increase the security by generating a secret token that the client will use to authenticate with the worker. This way without knowing the secret token it is impossible to connect to any tunnel disregarding the tunnel ID.
+
+```bash
+npm run generate-secret
+```
+
+This automatically redeploys the worker with the new secret token set as an environment variable. This enables the worker to authenticate the client requests. The client will automatically pick the token from `.env` and send it on websocket connection to the worker.
 
 ## About
 
