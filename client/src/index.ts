@@ -1,4 +1,6 @@
 import type {
+  ProxyRequest,
+  ProxyResponse,
   RequestMessage,
   ResponseMessage,
 } from "../../shared/protocol";
@@ -215,124 +217,116 @@ async function proxy() {
 
     const message: RequestMessage = JSON.parse(event.data);
     if (message.type === "request") {
-      console.log(`Received request: ${message.request.method}`);
-      // As the client code is the easies to test and debug, we will
-      // handle all the edge cases with transporting the request
-      // and response objects here (e.g. keep-alive, gzip, etc.)
-      const headers = new Headers(message.request.headers);
-
-      if (BASIC_AUTH) {
-        const [username, password] = BASIC_AUTH.split(":");
-        const basic = headers.get("authorization");
-        if (!basic || !basic.startsWith("Basic ")) {
-          console.warn(
-            `Basic Auth is enabled, but no credentials provided.`
-          );
-          const responseMessage: ResponseMessage = {
-            type: "response",
-            response: {
-              status: 401,
-              statusText: "Unauthorized",
-              headers: [
-                ["content-type", "text/plain"],
-                ["www-authenticate", "Basic"],
-              ],
-              body: stringToHex(
-                `Unauthorized. Please provide the correct Basic Auth credentials.`
-              ),
-            },
-          };
-          socket.send(JSON.stringify(responseMessage));
-          return;
-        }
-        const decoded = atob(basic.slice(6));
-        const [reqUsername, reqPassword] = decoded.split(":");
-        if (reqUsername !== username || reqPassword !== password) {
-          console.warn(
-            `Basic Auth credentials provided, but they are incorrect.`
-          );
-          const responseMessage: ResponseMessage = {
-            type: "response",
-            response: {
-              status: 401,
-              statusText: "Unauthorized",
-              headers: [
-                ["content-type", "text/plain"],
-                ["www-authenticate", "Basic"],
-              ],
-              body: stringToHex(
-                `Unauthorized. Please provide the correct Basic Auth credentials.`
-              ),
-            },
-          };
-          socket.send(JSON.stringify(responseMessage));
-          return;
-        }
-        console.log(
-          `Basic Auth credentials provided and verified: ${username}:***`
-        );
-      }
-
-      headers.delete("content-length");
-      headers.delete("transfer-encoding");
-      headers.delete("keep-alive");
-      headers.delete("host");
-      const requestBody = message.request.body
-        ? fromHex(message.request.body)
-        : undefined;
-      const targetURL = mergeURLs(targetURLStr, message.request.url);
-      // if you need a custom host header, you can set it here
-      const cfConnectingIp = headers.get("cf-connecting-ip");
-      if (cfConnectingIp) {
-        headers.set("x-forwarded-for", cfConnectingIp);
-      }
-      // headers.set("host", "example.com");
-      try {
-        const response = await fetch(targetURL, {
-          method: message.request.method,
-          headers,
-          body: requestBody,
-        });
-        let body;
-        if (response.body) {
-          body = toHex(await response.bytes());
-        }
-
-        const responseSerializable = {
-          status: response.status,
-          statusText: response.statusText,
-          headers: [...response.headers.entries()],
-          body,
-        };
-        const responseMessage: ResponseMessage = {
-          type: "response",
-          response: responseSerializable,
-        };
-        socket.send(JSON.stringify(responseMessage));
-      } catch (error) {
-        console.error("Error while fetching:", error);
-        const responseMessage: ResponseMessage = {
-          type: "response",
-          response: {
-            status: 500,
-            statusText: "Internal Server Error",
-            headers: [["content-type", "text/plain"]],
-            body: stringToHex(
-              `Error while fetching the target URL.
-Please check if the target server is running on "${targetURLStr}".
-For more information check the tunnel client logs.
-`
-            ),
-          },
-        };
-        socket.send(JSON.stringify(responseMessage));
-      }
+      const response = await handleRequestMessage(message.request);
+      const responseMessage: ResponseMessage = {
+        type: "response",
+        response,
+      };
+      socket.send(JSON.stringify(responseMessage));
     } else {
       console.error("Unknown message type:", message.type);
     }
   });
 
   return await promise;
+}
+
+async function handleRequestMessage(
+  request: ProxyRequest
+): Promise<ProxyResponse> {
+  console.log(`Received request: ${request.method}`);
+  // As the client code is the easies to test and debug, we will
+  // handle all the edge cases with transporting the request
+  // and response objects here (e.g. keep-alive, gzip, etc.)
+  const headers = new Headers(request.headers);
+
+  if (BASIC_AUTH) {
+    const [username, password] = BASIC_AUTH.split(":");
+    const basic = headers.get("authorization");
+    if (!basic || !basic.startsWith("Basic ")) {
+      console.warn(
+        `Basic Auth is enabled, but no credentials provided.`
+      );
+      return {
+        status: 401,
+        statusText: "Unauthorized",
+        headers: [
+          ["content-type", "text/plain"],
+          ["www-authenticate", "Basic"],
+        ],
+        body: stringToHex(
+          `Unauthorized. Please provide the correct Basic Auth credentials.`
+        ),
+      };
+    }
+    const decoded = atob(basic.slice(6));
+    const [reqUsername, reqPassword] = decoded.split(":");
+    if (reqUsername !== username || reqPassword !== password) {
+      console.warn(
+        `Basic Auth credentials provided, but they are incorrect.`
+      );
+      return {
+        status: 401,
+        statusText: "Unauthorized",
+        headers: [
+          ["content-type", "text/plain"],
+          ["www-authenticate", "Basic"],
+        ],
+        body: stringToHex(
+          `Unauthorized. Please provide the correct Basic Auth credentials.`
+        ),
+      };
+    }
+    console.log(
+      `Basic Auth credentials provided and verified: ${username}:***`
+    );
+  }
+
+  headers.delete("content-length");
+  headers.delete("transfer-encoding");
+  headers.delete("keep-alive");
+  headers.delete("host");
+  const requestBody = request.body
+    ? fromHex(request.body)
+    : undefined;
+  const targetURL = mergeURLs(targetURLStr, request.url);
+  // if you need a custom host header, you can set it here
+  const cfConnectingIp = headers.get("cf-connecting-ip");
+  if (cfConnectingIp) {
+    headers.set("x-forwarded-for", cfConnectingIp);
+  }
+  // headers.set("host", "example.com");
+  try {
+    const response = await fetch(targetURL, {
+      method: request.method,
+      headers,
+      body: requestBody,
+    });
+    let body;
+    if (response.body) {
+      body = toHex(await response.bytes());
+    }
+
+    return {
+      status: response.status,
+      statusText: response.statusText,
+      headers: [...response.headers.entries()],
+      body,
+    };
+  } catch (error) {
+    console.error("Error while fetching:", error);
+    return {
+      status: 500,
+      statusText: "Internal Server Error",
+      headers: [["content-type", "text/plain"]],
+      body: stringToHex(
+        `Error while fetching the target URL.
+Please check if the target server is running on "${targetURLStr}".
+For more information check the tunnel client logs.
+`
+      ),
+    };
+  }
 }
 
 export function stringToHex(str: string): string {
