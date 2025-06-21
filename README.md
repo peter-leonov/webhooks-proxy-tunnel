@@ -40,6 +40,8 @@ It takes just under 10 minutes to set up.
 
 ## Security
 
+### Secret token
+
 The tool uses cryptographically random unique tunnel IDs (UUID v4) to avoid collisions, but also to provide basic security out of the box. It's not possible to connect to the worker without knowing the tunnel ID. But we all know that security through obscurity can get us only so far. You can significantly increase the security by generating a secret token that the client will use to authenticate with the worker. This way without knowing the secret token it is impossible to connect to any tunnel disregarding the tunnel ID.
 
 ```bash
@@ -47,6 +49,17 @@ npm run generate-secret
 ```
 
 This automatically redeploys the worker with the new secret token set as an environment variable. This enables the worker to authenticate the client requests. The client will automatically pick the token from `.env` and send it on websocket connection to the worker.
+
+### Rename the worker
+
+You can rename the worker by updating the `name` field in the [`worker/wrangler.jsonc`](worker/wrangler.jsonc#L7) file. This will change the public endpoint URL to reflect the new name. A good way is to append a random string to the name, e.g. `webhooks-proxy-tunnel-123abc`.
+
+```jsonc
+{
+  "name": "webhooks-proxy-tunnel-123abc"
+  // ...
+}
+```
 
 ## About
 
