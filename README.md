@@ -22,6 +22,11 @@ It takes just under 10 minutes to set up.
 
 1. (1 min) [Install](https://nodejs.org/en/download) Node.js. Tested on `v22.14.0`.
 
+   ```bash
+   nvm install 22
+   nvm use 22
+   ```
+
 1. (15 sec) Clone the repo:
 
    ```bash
