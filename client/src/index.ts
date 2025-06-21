@@ -38,6 +38,46 @@ if (!targetURLStr) {
   process.exit(1);
 }
 
+const MINUTE = 60 * 1000;
+
+// Disconnect the client after 10 minutes of inactivity.
+const INACTIVE_TIMEOUT_MIN = Number(
+  process.env.WEBHOOKS_PROXY_CLIENT_INACTIVE_TIMEOUT_MIN || "10"
+);
+
+function terminateInactiveClient() {
+  console.log(
+    `Terminating the client after ${INACTIVE_TIMEOUT_MIN} minutes of inactivity.`
+  );
+  process.exit(0);
+}
+
+let inactiveTimeout: NodeJS.Timeout;
+
+function resetInactiveTimeout() {
+  clearTimeout(inactiveTimeout);
+  if (INACTIVE_TIMEOUT_MIN <= 0) {
+    return;
+  }
+  inactiveTimeout = setTimeout(
+    terminateInactiveClient,
+    INACTIVE_TIMEOUT_MIN * MINUTE
+  );
+}
+
+if (INACTIVE_TIMEOUT_MIN > 0) {
+  console.log(
+    `For increased security, the client will be terminated after ${INACTIVE_TIMEOUT_MIN} minutes of inactivity.`
+  );
+} else {
+  console.warn(
+    "Inactivity timeout is disabled. The client will not be terminated automatically."
+  );
+}
+
+// Start counting inactivity timeout right away.
+resetInactiveTimeout();
+
 const WEBHOOKS_PROXY_TUNNEL_SECRET =
   process.env.WEBHOOKS_PROXY_TUNNEL_SECRET;
 
@@ -146,6 +186,8 @@ async function proxy() {
   });
 
   socket.addEventListener("message", async (event) => {
+    resetInactiveTimeout();
+
     const message: RequestMessage = JSON.parse(event.data);
     if (message.type === "request") {
       // As the client code is the easies to test and debug, we will
