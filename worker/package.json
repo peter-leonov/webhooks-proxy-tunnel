@@ -14,7 +14,8 @@
     "cf-typegen": "wrangler types",
     "typecheck": "npx tsc --noEmit",
     "ci": "npm run cf-typegen && npm run typecheck && npm run build",
-    "generate-secret": "./generate-secret.sh"
+    "generate-secret": "./generate-secret.sh",
+    "rename-worker": "./rename-worker.sh"
   },
   "devDependencies": {
     "prettier": "^3.5.3",

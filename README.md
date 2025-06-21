@@ -54,12 +54,12 @@ This automatically redeploys the worker with the new secret token set as an envi
 
 You can rename the worker by updating the `name` field in the [`worker/wrangler.jsonc`](worker/wrangler.jsonc#L7) file. This will change the public endpoint URL to reflect the new name. A good way is to append a random string to the name, e.g. `webhooks-proxy-tunnel-123abc`.
 
-```jsonc
-{
-  "name": "webhooks-proxy-tunnel-123abc"
-  // ...
-}
+```bash
+npm run rename-worker
+npm run deploy
 ```
+
+Then remove the old worker from your Cloudflare account to avoid confusion. You can do this in the [Cloudflare dashboard](https://dash.cloudflare.com/).
 
 ## About
 
