@@ -40,6 +40,25 @@ if (!targetURLStr) {
 
 const MINUTE = 60 * 1000;
 
+const TOTAL_TIMEOUT_MIN = Number(
+  process.env.WEBHOOKS_PROXY_CLIENT_TOTAL_TIMEOUT_MIN || "60"
+);
+if (TOTAL_TIMEOUT_MIN <= 0) {
+  console.warn(
+    "Total timeout is disabled. The client will not be terminated automatically after 60 minutes."
+  );
+} else {
+  console.log(
+    `For increased security, the client will be terminated after ${TOTAL_TIMEOUT_MIN} minutes.`
+  );
+  setTimeout(() => {
+    console.log(
+      `Total timeout of ${TOTAL_TIMEOUT_MIN} minutes reached. Terminating the client.`
+    );
+    process.exit(0);
+  }, TOTAL_TIMEOUT_MIN * MINUTE);
+}
+
 // Disconnect the client after 10 minutes of inactivity.
 const INACTIVE_TIMEOUT_MIN = Number(
   process.env.WEBHOOKS_PROXY_CLIENT_INACTIVE_TIMEOUT_MIN || "10"
@@ -71,7 +90,7 @@ if (INACTIVE_TIMEOUT_MIN > 0) {
   );
 } else {
   console.warn(
-    "Inactivity timeout is disabled. The client will not be terminated automatically."
+    "Inactivity timeout is disabled. The client will not be terminated after 10 minutes of inactivity."
   );
 }
 
