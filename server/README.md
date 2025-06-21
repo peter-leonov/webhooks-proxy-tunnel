@@ -1,6 +1,6 @@
-# Server
+# Demo server
 
-A demo echo HTTP server that return unique hello-world responses with the request body piped back.
+A demo echo HTTP server that return unique responses with the request headers and body piped back.
 
 ## Usage
 

@@ -2,20 +2,22 @@
 
 The client that replays the requests and returns the responses to the target server.
 
+It's a single (+a tiny bit of code shared with worker) TypeScript file natively runnable with Node.js.
+
 ## Usage
 
 ```bash
-node src/client.js <tunnelURL> <targetURL>
+npm start -- <TUNNEL_URL> <TARGET_URL>
 ```
 
 Example:
 
 ```bash
-node src/client.js https://webhooks-proxy-tunnel.YOUR_ORG.workers.dev/tunnel http://localhost:3000
+npm start -- https://webhooks-proxy-tunnel.acme.workers.dev/tunnel http://localhost:3000
 ```
 
 ## Dev mode
 
 ```bash
-npm start
+npm run dev -- <TUNNEL_URL> <TARGET_URL>
 ```
