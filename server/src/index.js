@@ -30,7 +30,7 @@ const server = http.createServer((req, res) => {
   req.pipe(res, { end: true });
 });
 
-const PORT = 3000;
+const PORT = Number(process.argv[2] || "3000");
 server.listen(PORT, () => {
   console.log(`Server running at http://localhost:${PORT}/`);
 });
