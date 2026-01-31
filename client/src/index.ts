@@ -11,19 +11,24 @@ import {
 } from "../../shared/constants.ts";
 import { generateToken } from "../../shared/token.ts";
 
-const [, , tunnelURLStr, targetURLStr] = process.argv;
+const [, , tunnelURLStr, targetURLStr, ...additionalHeadersArgs] = process.argv;
 
 function usage() {
   console.error("Usage:");
-  console.error("  node src/client.js <tunnelURL> <targetURL>");
+  console.error(
+    "  node src/client.js <tunnelURL> <targetURL> [header1] [header2] ..."
+  );
   console.error("");
   console.error(
     "  Use env var WEBHOOKS_PROXY_TUNNEL_SECRET to secure the tunnel."
   );
+  console.error(
+    "  Use env var WEBHOOKS_PROXY_ADDITIONAL_SAFE_HEADERS to add more safe headers (comma separated)."
+  );
   console.error();
   console.error("Example:");
   console.error(
-    "  node src/client.js https://webhooks-proxy-tunnel.YOUR_ORG.workers.dev/connect/00000000-0000-0000-0000-000000000000 http://localhost:3000"
+    "  node src/client.js https://webhooks-proxy-tunnel.YOUR_ORG.workers.dev/connect/00000000-0000-0000-0000-000000000000 http://localhost:3000 x-webhook-header"
   );
 }
 
@@ -235,7 +240,7 @@ async function proxy() {
  * These headers are commonly used in HTTP requests and are generally safe to forward.
  * Feel free to modify this list based on your requirements.
  */
-const SAFE_HEADERS = new Set([
+const DEFAULT_SAFE_HEADERS = [
   "cookie",
   "accept",
   "accept-encoding",
@@ -246,7 +251,33 @@ const SAFE_HEADERS = new Set([
   "user-agent",
   "x-forwarded-for",
   "cf-connecting-ip",
-]);
+];
+const SAFE_HEADERS = new Set(DEFAULT_SAFE_HEADERS);
+
+const WEBHOOKS_PROXY_ADDITIONAL_SAFE_HEADERS =
+  process.env.WEBHOOKS_PROXY_ADDITIONAL_SAFE_HEADERS;
+if (WEBHOOKS_PROXY_ADDITIONAL_SAFE_HEADERS) {
+  for (const h of WEBHOOKS_PROXY_ADDITIONAL_SAFE_HEADERS.split(",")) {
+    const header = h.trim().toLowerCase();
+    if (header) {
+      SAFE_HEADERS.add(header);
+    }
+  }
+}
+
+for (const h of additionalHeadersArgs) {
+  const header = h.trim().toLowerCase();
+  if (header) {
+    SAFE_HEADERS.add(header);
+  }
+}
+
+if (SAFE_HEADERS.size > DEFAULT_SAFE_HEADERS.length) {
+  console.log(
+    "Additional safe headers added:",
+    Array.from(SAFE_HEADERS).slice(DEFAULT_SAFE_HEADERS.length).join(", ")
+  );
+}
 
 async function handleRequestMessage(
   request: ProxyRequest
