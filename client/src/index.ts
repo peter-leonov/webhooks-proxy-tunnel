@@ -10,6 +10,8 @@ import {
   X_WEBHOOKS_PROXY_TUNNEL_PREFLIGHT,
 } from "../../shared/constants.ts";
 import { generateToken } from "../../shared/token.ts";
+import * as http from "node:http";
+import * as https from "node:https";
 
 const [, , tunnelURLStr, targetURLStr, ...additionalHeadersArgs] = process.argv;
 
@@ -250,6 +252,8 @@ const DEFAULT_SAFE_HEADERS = [
   "content-type",
   "user-agent",
   "x-forwarded-for",
+  "x-forwarded-host",
+  "x-forwarded-proto",
   "cf-connecting-ip",
 ];
 const SAFE_HEADERS = new Set(DEFAULT_SAFE_HEADERS);
@@ -337,28 +341,56 @@ async function handleRequestMessage(
     ? fromHex(request.body)
     : undefined;
   const targetURL = mergeURLs(targetURLStr, request.url);
-  // if you need a custom host header, you can set it here
+
   const cfConnectingIp = headers.get("cf-connecting-ip");
   if (cfConnectingIp) {
     headers.set("x-forwarded-for", cfConnectingIp);
   }
-  // headers.set("host", "example.com");
+
+  // Build headers object for the native http module.
+  // We explicitly set the Host header to the public hostname (x-forwarded-host)
+  // so that the local server generates correct absolute URLs — just like ngrok does.
+  // (fetch/undici treats "host" as a forbidden header and ignores it.)
+  const headersObj: Record<string, string> = {};
+  for (const [k, v] of headers.entries()) {
+    headersObj[k] = v;
+  }
+  const xForwardedHost = headers.get("x-forwarded-host");
+  if (xForwardedHost) {
+    headersObj["host"] = xForwardedHost;
+  }
+
+  // Public origin (e.g. https://example.workers.dev) — used to rewrite
+  // Location headers so redirects stay on the public host, not the local server.
+  const publicOrigin = new URL(request.url).origin;
+
   try {
-    const response = await fetch(targetURL, {
-      method: request.method,
-      headers,
-      body: requestBody,
-    });
-    let body;
-    if (response.body) {
-      body = toHex(await response.bytes());
-    }
+    const { status, statusText, responseHeaders, body } =
+      await nodeRequest(targetURL, request.method, headersObj, requestBody);
+
+    // Rewrite Location headers so redirects point to the public origin.
+    // The worker's cookie-based routing will forward them to the right tunnel.
+    // Handles absolute (http://127.0.0.1/...) and relative (/path) locations.
+    const targetOrigin = targetURL.origin; // e.g. http://127.0.0.1
+    const rewrittenHeaders: [string, string][] = responseHeaders.map(
+      ([k, v]) => {
+        if (k.toLowerCase() === "location") {
+          if (v.startsWith(targetOrigin)) {
+            return [k, publicOrigin + v.slice(targetOrigin.length)];
+          }
+          if (v.startsWith("/")) {
+            return [k, publicOrigin + v];
+          }
+        }
+        return [k, v];
+      }
+    );
 
     return {
-      status: response.status,
-      statusText: response.statusText,
-      headers: [...response.headers.entries()],
-      body,
+      status,
+      statusText,
+      headers: rewrittenHeaders,
+      body: body ? toHex(body) : undefined,
     };
   } catch (error) {
     console.error("Error while fetching:", error);
@@ -374,6 +406,68 @@ For more information check the tunnel client logs.
       ),
     };
   }
+}
+
+/**
+ * Make an HTTP request using Node's native http/https module.
+ * Unlike fetch(), this allows overriding the Host header freely.
+ */
+function nodeRequest(
+  url: URL,
+  method: string,
+  reqHeaders: Record<string, string>,
+  body?: Uint8Array
+): Promise<{
+  status: number;
+  statusText: string;
+  responseHeaders: [string, string][];
+  body?: Buffer;
+}> {
+  return new Promise((resolve, reject) => {
+    const isHttps = url.protocol === "https:";
+    const mod = isHttps ? https : http;
+    const port = url.port
+      ? Number(url.port)
+      : isHttps
+      ? 443
+      : 80;
+
+    const req = mod.request(
+      {
+        hostname: url.hostname,
+        port,
+        path: url.pathname + url.search,
+        method,
+        headers: reqHeaders,
+      },
+      (res) => {
+        const chunks: Buffer[] = [];
+        res.on("data", (chunk: Buffer) => chunks.push(chunk));
+        res.on("end", () => {
+          const responseHeaders: [string, string][] = [];
+          const raw = res.headers;
+          for (const key of Object.keys(raw)) {
+            const val = raw[key];
+            if (Array.isArray(val)) {
+              for (const v of val) responseHeaders.push([key, v]);
+            } else if (val !== undefined) {
+              responseHeaders.push([key, val]);
+            }
+          }
+          resolve({
+            status: res.statusCode ?? 200,
+            statusText: res.statusMessage ?? "",
+            responseHeaders,
+            body: chunks.length > 0 ? Buffer.concat(chunks) : undefined,
+          });
+        });
+        res.on("error", reject);
+      }
+    );
+    req.on("error", reject);
+    if (body) req.write(body);
+    req.end();
+  });
 }
 
 export function stringToHex(str: string): string {

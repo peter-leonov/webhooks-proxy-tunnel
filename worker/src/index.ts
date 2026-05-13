@@ -7,10 +7,11 @@ import {
 } from "../../shared/constants";
 import { isValidToken, tokenFromParts } from "../../shared/token";
 import { homePage } from "./homePage";
-import { Stats } from "./types";
+import { RequestLogEntry, Stats } from "./types";
 import { tunnelPage } from "./tunnelPage";
 
 const RESPONSE_TIMEOUT_MS = 30_000; // 30 seconds
+const MAX_LOG_ENTRIES = 100;
 
 export class MyDurableObject extends DurableObject {
   // TODO: think of using a WeakMap
@@ -18,6 +19,9 @@ export class MyDurableObject extends DurableObject {
   resolve: ((value: Response) => void) | null = null;
   reject: ((value: Error) => void) | null = null;
   requests: number = 0;
+  requestLog: RequestLogEntry[] = [];
+  pendingLogEntryId: string | null = null;
+
   constructor(ctx: DurableObjectState, env: Env) {
     super(ctx, env);
   }
@@ -74,36 +78,56 @@ export class MyDurableObject extends DurableObject {
 
   async proxy(request: Request): Promise<Response> {
     this.requests++;
-    console.info("proxying request", request.url);
+    const id = crypto.randomUUID();
+    const timestamp = Date.now();
+
+    const bodyHex = request.body ? toHex(await request.bytes()) : undefined;
+
+    // Inject X-Forwarded-* headers so the local server knows the real public URL.
+    const publicURL = new URL(request.url);
+    const headers = (
+      [...request.headers.entries()] as [string, string][]
+    ).filter(
+      ([k]) =>
+        !["x-forwarded-host", "x-forwarded-proto"].includes(k.toLowerCase()),
+    );
+    headers.push(["x-forwarded-host", publicURL.hostname]);
+    headers.push(["x-forwarded-proto", publicURL.protocol.replace(":", "")]);
+
+    const requestData = {
+      method: request.method,
+      url: request.url,
+      headers,
+      body: bodyHex,
+    };
+
+    const logEntry: RequestLogEntry = {
+      id,
+      timestamp,
+      isReplay: false,
+      request: requestData,
+    };
+    this.requestLog.unshift(logEntry);
+    if (this.requestLog.length > MAX_LOG_ENTRIES) this.requestLog.pop();
+
     if (!this.proxyTo) {
+      logEntry.error = "no proxy connected";
       return new Response("There is no proxy connected to the tunnel.", {
         status: 502,
       });
     }
 
-    const bodyHex = request.body ? toHex(await request.bytes()) : undefined;
-
-    const requestSerializable = {
-      method: request.method,
-      url: request.url,
-      headers: [...request.headers.entries()],
-      body: bodyHex,
-    };
     const requestMessage: RequestMessage = {
       type: "request",
-      request: requestSerializable,
+      request: requestData,
     };
-    this.proxyTo.send(JSON.stringify(requestMessage));
 
     try {
-      return await withTimeout(
-        new Promise<Response>((resolve, reject) => {
-          this.resolve = resolve;
-          this.reject = reject;
-        }),
-        RESPONSE_TIMEOUT_MS,
-      );
+      return await this._forward(logEntry, requestMessage);
     } catch (error) {
+      const msg = error instanceof Error ? error.message : String(error);
+      logEntry.error = msg;
+      this.pendingLogEntryId = null;
       if (error instanceof TimeoutError) {
         return new Response(
           "waiting for response from the tunnel client timed out",
@@ -114,11 +138,35 @@ export class MyDurableObject extends DurableObject {
     }
   }
 
+  private async _forward(
+    logEntry: RequestLogEntry,
+    requestMessage: RequestMessage,
+  ): Promise<Response> {
+    this.pendingLogEntryId = logEntry.id;
+    this.proxyTo!.send(JSON.stringify(requestMessage));
+    return withTimeout(
+      new Promise<Response>((resolve, reject) => {
+        this.resolve = resolve;
+        this.reject = reject;
+      }),
+      RESPONSE_TIMEOUT_MS,
+    );
+  }
+
   response(message: ResponseMessage): void {
     const { status, statusText, headers, body: bodyHex } = message.response;
 
-    const body = bodyHex ? fromHex(bodyHex) : undefined;
+    if (this.pendingLogEntryId) {
+      const entry = this.requestLog.find(
+        (e) => e.id === this.pendingLogEntryId,
+      );
+      if (entry) {
+        entry.response = { status, statusText, headers, body: bodyHex };
+      }
+      this.pendingLogEntryId = null;
+    }
 
+    const body = bodyHex ? fromHex(bodyHex) : undefined;
     this.resolve?.(
       new Response(body, {
         status,
@@ -143,6 +191,67 @@ export class MyDurableObject extends DurableObject {
       isConnected: !!this.proxyTo,
       requests: this.requests,
     };
+  }
+
+  async getLog(): Promise<{ isConnected: boolean; log: RequestLogEntry[] }> {
+    return { isConnected: !!this.proxyTo, log: this.requestLog };
+  }
+
+  async clearLog(): Promise<void> {
+    this.requestLog = [];
+  }
+
+  async replayRequest(data: {
+    method: string;
+    url: string;
+    headers: [string, string][];
+    body?: string;
+  }): Promise<{
+    id: string;
+    response?: RequestLogEntry["response"];
+    error?: string;
+  }> {
+    const id = crypto.randomUUID();
+    const timestamp = Date.now();
+
+    const logEntry: RequestLogEntry = {
+      id,
+      timestamp,
+      isReplay: true,
+      request: {
+        method: data.method,
+        url: data.url,
+        headers: data.headers,
+        body: data.body,
+      },
+    };
+    this.requestLog.unshift(logEntry);
+    if (this.requestLog.length > MAX_LOG_ENTRIES) this.requestLog.pop();
+
+    if (!this.proxyTo) {
+      logEntry.error = "no proxy connected";
+      return { id, error: "no proxy connected" };
+    }
+
+    const requestMessage: RequestMessage = {
+      type: "request",
+      request: {
+        method: data.method,
+        url: data.url,
+        headers: data.headers,
+        body: data.body,
+      },
+    };
+
+    try {
+      await this._forward(logEntry, requestMessage);
+      return { id, response: logEntry.response };
+    } catch (error) {
+      const errorMsg = error instanceof Error ? error.message : String(error);
+      logEntry.error = errorMsg;
+      this.pendingLogEntryId = null;
+      return { id, error: errorMsg };
+    }
   }
 }
 
@@ -177,6 +286,51 @@ export default {
             headers: { "content-type": "text/html" },
           },
         );
+      } else if (url.pathname.startsWith("/api/")) {
+        // Routes: /api/<tunnelId>/log  |  /api/<tunnelId>/log/clear  |  /api/<tunnelId>/replay
+        const parts = url.pathname.split("/");
+        const tunnelId = parts[2];
+        const action = parts[3];
+        const subAction = parts[4];
+
+        // Only handle as an internal API route if the second segment is a valid UUID.
+        // Otherwise fall through to cookie-based proxy below.
+        if (tunnelId && tunnelId.length === 36) {
+          const doId = env.MY_DURABLE_OBJECT.idFromName(tunnelId);
+          const stub = env.MY_DURABLE_OBJECT.get(doId);
+
+          if (action === "log" && !subAction && request.method === "GET") {
+            const logData = await stub.getLog();
+            return Response.json(logData, {
+              headers: { "cache-control": "no-cache, no-store" },
+            });
+          }
+
+          if (
+            action === "log" &&
+            subAction === "clear" &&
+            request.method === "POST"
+          ) {
+            await stub.clearLog();
+            return Response.json({ ok: true });
+          }
+
+          if (action === "replay" && request.method === "POST") {
+            const body = (await request.json()) as {
+              method: string;
+              url: string;
+              headers: [string, string][];
+              body?: string;
+            };
+            const result = await stub.replayRequest(body);
+            const statusCode =
+              result.error === "no proxy connected" ? 502 : 200;
+            return Response.json(result, { status: statusCode });
+          }
+
+          return new Response("Not found", { status: 404 });
+        }
+        // tunnelId is not a UUID: fall through to cookie-based proxy
       } else if (url.pathname.startsWith("/connect/")) {
         const tunnelId = getTunnelId(url.pathname);
         if (secretIsValid) {
@@ -223,7 +377,19 @@ export default {
         const tunnelId = getTunnelId(url.pathname);
         const doId = env.MY_DURABLE_OBJECT.idFromName(tunnelId);
         const stub = env.MY_DURABLE_OBJECT.get(doId);
-        return stub.proxy(request);
+        const proxyResponse = await stub.proxy(request);
+        // Set a session cookie so the browser can navigate the proxied app
+        // without the /proxy/{tunnelId}/ prefix in every URL — just like ngrok.
+        const proxyHeaders = new Headers(proxyResponse.headers);
+        proxyHeaders.append(
+          "Set-Cookie",
+          `wpt=${tunnelId}; Path=/; SameSite=Lax; HttpOnly; Max-Age=3600`,
+        );
+        return new Response(proxyResponse.body, {
+          status: proxyResponse.status,
+          statusText: proxyResponse.statusText,
+          headers: proxyHeaders,
+        });
       } else if (url.pathname.startsWith("/close/")) {
         const tunnelId = getTunnelId(url.pathname);
         const doId = env.MY_DURABLE_OBJECT.idFromName(tunnelId);
@@ -247,6 +413,22 @@ export default {
           },
         );
       }
+      // Cookie-based proxy: browser sessions set via /proxy/{tunnelId}/ entry point.
+      // Allows navigating the proxied app with clean root-level URLs (like ngrok).
+      const cookieTunnelId = getCookieValue(
+        request.headers.get("cookie") ?? "",
+        "wpt",
+      );
+      if (cookieTunnelId && cookieTunnelId.length === 36) {
+        const doId = env.MY_DURABLE_OBJECT.idFromName(cookieTunnelId);
+        const stub = env.MY_DURABLE_OBJECT.get(doId);
+        // Rewrite the URL to include the /proxy/{tunnelId}/ prefix so the
+        // Durable Object and tunnel client handle it with the standard logic.
+        const proxiedUrl = new URL(request.url);
+        proxiedUrl.pathname = `/proxy/${cookieTunnelId}${url.pathname}`;
+        return stub.proxy(new Request(proxiedUrl.toString(), request));
+      }
+
       return new Response("Not found", { status: 404 });
     } catch (error) {
       if (error instanceof ClientError) {
@@ -274,4 +456,11 @@ function withTimeout<T>(promise: Promise<T>, ms: number): Promise<T> {
 function isValidSecret(secret: unknown): secret is string {
   // A valid secret is a string of 40 characters (30 bytes in Base64).
   return typeof secret === "string" && secret.length === 40;
+}
+
+function getCookieValue(cookieHeader: string, name: string): string | null {
+  const match = cookieHeader.match(
+    new RegExp(`(?:^|;\\s*)${name}=([^;]*)`),
+  );
+  return match ? match[1] : null;
 }
