@@ -250,6 +250,8 @@ const DEFAULT_SAFE_HEADERS = [
   "content-type",
   "user-agent",
   "x-forwarded-for",
+  "x-forwarded-host",
+  "x-forwarded-proto",
   "cf-connecting-ip",
 ];
 const SAFE_HEADERS = new Set(DEFAULT_SAFE_HEADERS);
