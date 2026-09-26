@@ -43,6 +43,12 @@ It takes just under 10 minutes to set up.
 
 1. (2 min) Then open the `https://webhooks-proxy-tunnel.YOUR_ACCOUNT.workers.dev` link from the console output above and follow the instructions there.
 
+## Inspect requests in the browser
+
+To see what a third party sends without running a local server, open the tunnel page and click "Connect this browser". The tab then becomes the tunnel client: every request to the public URL is logged to its DevTools console and answered with `200 OK`. Nothing is stored anywhere, the requests only live in that tab.
+
+If the secret token is set, the page asks for it and uses it to sign the connection in the browser, the same way the client does. Connecting the browser kicks out a connected client, as any new client does.
+
 ## Security
 
 ### Secret token
