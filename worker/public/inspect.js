@@ -2,11 +2,13 @@
 // requests to a local server it logs them to the DevTools console and
 // answers them itself. Nothing is persisted anywhere.
 
-const { connectUrl, tunnelId, protocol } = document.currentScript.dataset;
+const { connectUrl, proxyUrl, tunnelId, protocol } =
+  document.currentScript.dataset;
 
 const form = document.getElementById("inspect-form");
 const secretInput = document.getElementById("inspect-secret");
 const connectButton = document.getElementById("inspect-connect");
+const testButton = document.getElementById("inspect-test");
 const statusNode = document.getElementById("inspect-status");
 
 const RESPONSE_BODY =
@@ -133,4 +135,27 @@ form.addEventListener("submit", async (event) => {
     : "no-secret";
   setStatus("Connecting…");
   connect(token);
+});
+
+// Sends an example webhook through the public URL, like a third party would.
+testButton.addEventListener("click", async () => {
+  try {
+    const response = await fetch(`${proxyUrl}/test?source=inspector`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({
+        title: "Test webhook",
+        status: "firing",
+        sentAt: new Date().toISOString(),
+      }),
+    });
+    const outcome = `Test request answered with ${response.status} ${response.statusText}.`;
+    setStatus(
+      response.ok
+        ? `${outcome} ${received} request(s) logged to the DevTools console of this tab.`
+        : `${outcome} ${await response.text()}`,
+    );
+  } catch (error) {
+    setStatus(`Test request failed: ${error.message}`);
+  }
 });

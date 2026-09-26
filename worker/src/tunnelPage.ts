@@ -57,6 +57,7 @@ The connection now looks like this:
       : ""
   }
   <button type="submit" id="inspect-connect">Connect this browser</button>
+  <button type="button" id="inspect-test" class="secondary">Send a test request</button>
 </form>
 <p id="inspect-status"></p>
 <h2>Stats</h2>
@@ -88,6 +89,7 @@ updateUI()
 <script
   src="/inspect.js"
   data-connect-url="${origin}/connect/${tunnelId}"
+  data-proxy-url="${origin}/proxy/${tunnelId}"
   data-tunnel-id="${tunnelId}"
   data-protocol="${TUNNEL_PROXY_PROTOCOL}"
 ></script>
