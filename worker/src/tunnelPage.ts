@@ -1,3 +1,4 @@
+import { TUNNEL_PROXY_PROTOCOL } from "../../shared/constants";
 import { setSecretAside } from "./setSecretAside";
 import { Stats } from "./types";
 
@@ -42,6 +43,23 @@ For example like this:
 The connection now looks like this:
 <pre><code>${origin}/proxy/${tunnelId} → <span class="target-span">http://localhost:3000</span></code></pre>
 </p>
+<h2>Inspect in the browser</h2>
+<p>
+  To see what a third party sends without running a local server, connect this browser as the tunnel client instead.
+  Every request to the public URL is then logged to the DevTools console of this tab and answered with <code>200 OK</code>.
+  Nothing is stored: the requests only live in this tab until you close it.
+</p>
+<form id="inspect-form">
+  ${
+    isSecretSet
+      ? `<input type="password" id="inspect-secret" placeholder="WEBHOOKS_PROXY_TUNNEL_SECRET" autocomplete="off" required />
+  <small>The secret stays in this tab. It is only used to sign the connection, the same way the tunnel client does.</small>`
+      : ""
+  }
+  <button type="submit" id="inspect-connect">Connect this browser</button>
+  <button type="button" id="inspect-test" class="secondary">Send a test request</button>
+</form>
+<p id="inspect-status"></p>
 <h2>Stats</h2>
 <p><small><small>(refresh the page to update)</small></small></p>
 <p>Connected: ${stats.isConnected ? `yes (force <a href="/close/${tunnelId}">close</a>)` : "no"}</p>
@@ -68,6 +86,13 @@ function updateUI() {
 targetInput.addEventListener("input", updateUI)
 updateUI()
 </script>
+<script
+  src="/inspect.js"
+  data-connect-url="${origin}/connect/${tunnelId}"
+  data-proxy-url="${origin}/proxy/${tunnelId}"
+  data-tunnel-id="${tunnelId}"
+  data-protocol="${TUNNEL_PROXY_PROTOCOL}"
+></script>
 </body>
 </html>`;
 }

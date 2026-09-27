@@ -1,5 +1,11 @@
 # Changelog
 
+## Unreleased
+
+### 🚀 Features
+
+- **Browser inspector**: connect the tunnel page itself as the client to log incoming requests to the DevTools console, with nothing stored.
+
 ## 2025-06-21
 
 ### 🚀 Features
