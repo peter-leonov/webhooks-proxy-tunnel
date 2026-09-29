@@ -83,10 +83,21 @@ export class MyDurableObject extends DurableObject {
 
     const bodyHex = request.body ? toHex(await request.bytes()) : undefined;
 
+    // Inject X-Forwarded-* headers so the local server knows the real public URL.
+    const publicURL = new URL(request.url);
+    const headers = (
+      [...request.headers.entries()] as [string, string][]
+    ).filter(
+      ([k]) =>
+        !["x-forwarded-host", "x-forwarded-proto"].includes(k.toLowerCase()),
+    );
+    headers.push(["x-forwarded-host", publicURL.hostname]);
+    headers.push(["x-forwarded-proto", publicURL.protocol.replace(":", "")]);
+
     const requestSerializable = {
       method: request.method,
       url: request.url,
-      headers: [...request.headers.entries()],
+      headers,
       body: bodyHex,
     };
     const requestMessage: RequestMessage = {
@@ -223,7 +234,19 @@ export default {
         const tunnelId = getTunnelId(url.pathname);
         const doId = env.MY_DURABLE_OBJECT.idFromName(tunnelId);
         const stub = env.MY_DURABLE_OBJECT.get(doId);
-        return stub.proxy(request);
+        const proxyResponse = await stub.proxy(request);
+        // Set a session cookie so the browser can navigate the proxied app
+        // without the /proxy/{tunnelId}/ prefix in every URL — just like ngrok.
+        const proxyHeaders = new Headers(proxyResponse.headers);
+        proxyHeaders.append(
+          "Set-Cookie",
+          `wpt=${tunnelId}; Path=/; SameSite=Lax; HttpOnly; Max-Age=3600`,
+        );
+        return new Response(proxyResponse.body, {
+          status: proxyResponse.status,
+          statusText: proxyResponse.statusText,
+          headers: proxyHeaders,
+        });
       } else if (url.pathname.startsWith("/close/")) {
         const tunnelId = getTunnelId(url.pathname);
         const doId = env.MY_DURABLE_OBJECT.idFromName(tunnelId);
@@ -247,6 +270,22 @@ export default {
           },
         );
       }
+      // Cookie-based proxy: browser sessions set via /proxy/{tunnelId}/ entry point.
+      // Allows navigating the proxied app with clean root-level URLs (like ngrok).
+      const cookieTunnelId = getCookieValue(
+        request.headers.get("cookie") ?? "",
+        "wpt",
+      );
+      if (cookieTunnelId && cookieTunnelId.length === 36) {
+        const doId = env.MY_DURABLE_OBJECT.idFromName(cookieTunnelId);
+        const stub = env.MY_DURABLE_OBJECT.get(doId);
+        // Rewrite the URL to include the /proxy/{tunnelId}/ prefix so the
+        // Durable Object and tunnel client handle it with the standard logic.
+        const proxiedUrl = new URL(request.url);
+        proxiedUrl.pathname = `/proxy/${cookieTunnelId}${url.pathname}`;
+        return stub.proxy(new Request(proxiedUrl.toString(), request));
+      }
+
       return new Response("Not found", { status: 404 });
     } catch (error) {
       if (error instanceof ClientError) {
@@ -274,4 +313,11 @@ function withTimeout<T>(promise: Promise<T>, ms: number): Promise<T> {
 function isValidSecret(secret: unknown): secret is string {
   // A valid secret is a string of 40 characters (30 bytes in Base64).
   return typeof secret === "string" && secret.length === 40;
+}
+
+function getCookieValue(cookieHeader: string, name: string): string | null {
+  const match = cookieHeader.match(
+    new RegExp(`(?:^|;\\s*)${name}=([^;]*)`),
+  );
+  return match ? match[1] : null;
 }
