@@ -146,16 +146,6 @@ export class MyDurableObject extends DurableObject {
     this.pending.clear();
   }
 
-  async close(): Promise<boolean> {
-    this.rejectAll(new Error("Manually closed"));
-    if (!this.proxyTo) {
-      return false;
-    }
-    this.proxyTo.close(4102, "manually closed");
-    this.proxyTo = null;
-    return true;
-  }
-
   async stats(): Promise<Stats> {
     return {
       isConnected: !!this.proxyTo,
@@ -242,19 +232,6 @@ export default {
         const doId = env.MY_DURABLE_OBJECT.idFromName(tunnelId);
         const stub = env.MY_DURABLE_OBJECT.get(doId);
         return stub.proxy(request);
-      } else if (url.pathname.startsWith("/close/")) {
-        const tunnelId = getTunnelId(url.pathname);
-        const doId = env.MY_DURABLE_OBJECT.idFromName(tunnelId);
-        const stub = env.MY_DURABLE_OBJECT.get(doId);
-
-        return new Response(
-          (await stub.close())
-            ? "Closed connection"
-            : "No proxy connection found, all good.",
-          {
-            headers: { "cache-control": "no-cache, no-store, max-age=0" },
-          },
-        );
       } else if (url.pathname == "/") {
         return new Response(
           homePage({

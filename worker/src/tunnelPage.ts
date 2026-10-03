@@ -62,7 +62,7 @@ The connection now looks like this:
 <p id="inspect-status"></p>
 <h2>Stats</h2>
 <p><small><small>(refresh the page to update)</small></small></p>
-<p>Connected: ${stats.isConnected ? `yes (force <a href="/close/${tunnelId}">close</a>)` : "no"}</p>
+<p>Connected: ${stats.isConnected ? "yes" : "no"}</p>
 <p>Requests: ${stats.requests}</p>
 <p>
   Connecting a new client kicks out the currently connected one.
