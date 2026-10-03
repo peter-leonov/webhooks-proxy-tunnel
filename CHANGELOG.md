@@ -10,6 +10,10 @@
 
 - Overlapping requests no longer receive each other's responses: messages now carry a request id. Update the tunnel client together with the Worker.
 
+### 🔒 Security
+
+- Removed the unauthenticated `/close/<tunnel-id>` route, which let anyone who knew a tunnel id disconnect its client.
+
 ## 2025-06-21
 
 ### 🚀 Features
