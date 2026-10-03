@@ -12,11 +12,14 @@ import { tunnelPage } from "./tunnelPage";
 
 const RESPONSE_TIMEOUT_MS = 30_000; // 30 seconds
 
+type PendingResponse = {
+  resolve: (value: Response) => void;
+  reject: (reason: Error) => void;
+};
+
 export class MyDurableObject extends DurableObject {
-  // TODO: think of using a WeakMap
   proxyTo: WebSocket | null = null;
-  resolve: ((value: Response) => void) | null = null;
-  reject: ((value: Error) => void) | null = null;
+  pending = new Map<string, PendingResponse>();
   requests: number = 0;
   constructor(ctx: DurableObjectState, env: Env) {
     super(ctx, env);
@@ -35,7 +38,7 @@ export class MyDurableObject extends DurableObject {
     // request within the Durable Object. It has the effect of "accepting" the connection,
     // and allowing the WebSocket to send and receive messages.
     server.accept();
-    this.reject?.(new Error("new tunnel client connected"));
+    this.rejectAll(new Error("new tunnel client connected"));
     this.proxyTo?.close(4101, "new tunnel client connected");
     this.proxyTo = server;
 
@@ -44,7 +47,6 @@ export class MyDurableObject extends DurableObject {
 
       if (typeof event.data !== "string") {
         console.error("message is not a string", typeof event.data);
-        this.reject?.(new Error("message is not a string"));
         return;
       }
 
@@ -52,13 +54,13 @@ export class MyDurableObject extends DurableObject {
       if (message.type === "response") {
         this.response(message);
       } else {
-        this.reject?.(new Error("unknown message type"));
+        console.error("unknown message type", message.type);
       }
     });
 
     server.addEventListener("close", (cls: CloseEvent) => {
       this.proxyTo = null;
-      this.reject?.(new Error("server closed"));
+      this.rejectAll(new Error("server closed"));
       console.info("closing connection", cls.code, cls.reason);
       server.close(1001, `server closed (${cls.code}: ${cls.reason})`);
     });
@@ -89,20 +91,19 @@ export class MyDurableObject extends DurableObject {
       headers: [...request.headers.entries()],
       body: bodyHex,
     };
+    const id = crypto.randomUUID();
     const requestMessage: RequestMessage = {
       type: "request",
+      id,
       request: requestSerializable,
     };
+    const response = new Promise<Response>((resolve, reject) => {
+      this.pending.set(id, { resolve, reject });
+    });
     this.proxyTo.send(JSON.stringify(requestMessage));
 
     try {
-      return await withTimeout(
-        new Promise<Response>((resolve, reject) => {
-          this.resolve = resolve;
-          this.reject = reject;
-        }),
-        RESPONSE_TIMEOUT_MS,
-      );
+      return await withTimeout(response, RESPONSE_TIMEOUT_MS);
     } catch (error) {
       if (error instanceof TimeoutError) {
         return new Response(
@@ -111,15 +112,25 @@ export class MyDurableObject extends DurableObject {
         );
       }
       throw error;
+    } finally {
+      this.pending.delete(id);
     }
   }
 
   response(message: ResponseMessage): void {
+    const pending = this.pending.get(message.id);
+    if (!pending) {
+      // Already timed out, or an old client that does not echo the id.
+      console.warn("response to an unknown request", message.id);
+      return;
+    }
+    this.pending.delete(message.id);
+
     const { status, statusText, headers, body: bodyHex } = message.response;
 
     const body = bodyHex ? fromHex(bodyHex) : undefined;
 
-    this.resolve?.(
+    pending.resolve(
       new Response(body, {
         status,
         statusText,
@@ -128,8 +139,15 @@ export class MyDurableObject extends DurableObject {
     );
   }
 
+  rejectAll(reason: Error): void {
+    for (const { reject } of this.pending.values()) {
+      reject(reason);
+    }
+    this.pending.clear();
+  }
+
   async close(): Promise<boolean> {
-    this.reject?.(new Error("Manually closed"));
+    this.rejectAll(new Error("Manually closed"));
     if (!this.proxyTo) {
       return false;
     }
