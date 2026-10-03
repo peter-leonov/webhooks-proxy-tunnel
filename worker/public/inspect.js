@@ -97,6 +97,7 @@ function connect(token) {
     socket.send(
       JSON.stringify({
         type: "response",
+        id: message.id,
         response: {
           status: 200,
           statusText: "OK",

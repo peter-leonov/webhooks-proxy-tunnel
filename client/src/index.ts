@@ -223,6 +223,7 @@ async function proxy() {
       const response = await handleRequestMessage(message.request);
       const responseMessage: ResponseMessage = {
         type: "response",
+        id: message.id,
         response,
       };
       socket.send(JSON.stringify(responseMessage));

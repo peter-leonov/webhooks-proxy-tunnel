@@ -6,6 +6,10 @@
 
 - **Browser inspector**: connect the tunnel page itself as the client to log incoming requests to the DevTools console, with nothing stored.
 
+### 🐛 Fixes
+
+- Overlapping requests no longer receive each other's responses: messages now carry a request id. Update the tunnel client together with the Worker.
+
 ## 2025-06-21
 
 ### 🚀 Features
